@@ -4,15 +4,22 @@ import { BoardTransforms, PlaitBoard, PlaitElement, PlaitTheme, Viewport } from 
 import { loadFromJSON, saveAsJSON, saveJSON } from '../../../data/json';
 import MenuItem from '../../menu/menu-item';
 import MenuItemLink from '../../menu/menu-item-link';
+import MenuSeparator from '../../menu/menu-separator';
 import { saveAsPng, saveAsSvg } from '../../../utils/image';
 import { useDrawnix } from '../../../hooks/use-drawnix';
 import { useI18n } from '../../../i18n';
 import Menu from '../../menu/menu';
 import MenuItemContentSwitch from '../../menu/menu-item-content-switch';
-import { useContext } from 'react';
+import { useContext, useSyncExternalStore } from 'react';
 import { MenuContentPropsContext } from '../../menu/common';
 import { EVENT } from '../../../constants';
 import { getShortcutKey } from '../../../utils/common';
+import {
+  OPEN_RECENT_EVENT,
+  fileNameOf,
+  getRecentBoards,
+  subscribeRecentBoards,
+} from '../../../data/desktop';
 
 export const SaveToFile = () => {
   const board = useBoard();
@@ -105,6 +112,31 @@ export const OpenFile = () => {
   );
 };
 OpenFile.displayName = 'OpenFile';
+
+export const RecentFiles = () => {
+  const recentBoards = useSyncExternalStore(subscribeRecentBoards, getRecentBoards);
+  if (recentBoards.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      <MenuSeparator />
+      {recentBoards.slice(0, 5).map((path) => (
+        <MenuItem
+          key={path}
+          icon={OpenFileIcon}
+          onSelect={() => {
+            window.dispatchEvent(new CustomEvent(OPEN_RECENT_EVENT, { detail: path }));
+          }}
+          aria-label={fileNameOf(path)}
+        >
+          {fileNameOf(path)}
+        </MenuItem>
+      ))}
+    </>
+  );
+};
+RecentFiles.displayName = 'RecentFiles';
 
 export const SaveAsImage = () => {
   const board = useBoard();

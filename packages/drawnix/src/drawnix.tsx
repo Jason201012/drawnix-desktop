@@ -46,12 +46,14 @@ import type { Language } from './i18n/types';
 import { Tutorial } from './components/tutorial';
 import { LASER_POINTER_CLASS_NAME } from './utils/laser-pointer';
 import { Toast, useToast } from './components/toast/toast';
+import type { DrawnixFileHandle } from './data/json';
 
 export type DrawnixProps = {
   value: PlaitElement[];
   viewport?: Viewport;
   theme?: PlaitTheme;
   initialToolState?: Partial<DrawnixToolState>;
+  initialFileHandle?: DrawnixFileHandle;
   initialPreference?: {
     copyTransparent?: boolean;
     exportTransparent?: boolean;
@@ -63,6 +65,7 @@ export type DrawnixProps = {
   onViewportChange?: (value: Viewport) => void;
   onThemeChange?: (value: ThemeColorMode) => void;
   onToolStateChange?: (toolState: DrawnixToolState) => void;
+  onFileHandleChange?: (fileHandle: DrawnixFileHandle) => void;
   onPreferenceChange?: (preference: {
     copyTransparent: boolean;
     exportTransparent: boolean;
@@ -89,6 +92,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   viewport,
   theme,
   initialToolState,
+  initialFileHandle,
   initialPreference,
   initialLanguage,
   onChange,
@@ -97,6 +101,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   onThemeChange,
   onValueChange,
   onToolStateChange,
+  onFileHandleChange,
   onPreferenceChange,
   onLanguageChange,
   afterInit,
@@ -115,7 +120,7 @@ export const Drawnix: React.FC<DrawnixProps> = ({
       toolState: mergeToolState(initialToolState),
       isMobile: md.mobile() !== null,
       isPencilMode: false,
-      fileHandle: null,
+      fileHandle: initialFileHandle ?? null,
       openDialogType: null,
       openCleanConfirm: false,
       copyTransparent: initialPreference?.copyTransparent ?? false,
@@ -157,6 +162,18 @@ export const Drawnix: React.FC<DrawnixProps> = ({
   const hasMountedPreferenceRef = useRef(false);
   const onPreferenceChangeRef = useRef(onPreferenceChange);
   onPreferenceChangeRef.current = onPreferenceChange;
+
+  const hasMountedFileHandleRef = useRef(false);
+  const onFileHandleChangeRef = useRef(onFileHandleChange);
+  onFileHandleChangeRef.current = onFileHandleChange;
+
+  useEffect(() => {
+    if (!hasMountedFileHandleRef.current) {
+      hasMountedFileHandleRef.current = true;
+      return;
+    }
+    onFileHandleChangeRef.current?.(appState.fileHandle);
+  }, [appState.fileHandle]);
 
   useEffect(() => {
     if (!hasMountedPreferenceRef.current) {

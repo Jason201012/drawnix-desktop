@@ -16,6 +16,7 @@ import { useState } from 'react';
 import {
   CleanBoard,
   OpenFile,
+  RecentFiles,
   SaveAsFile,
   SaveAsImage,
   SaveToFile,
@@ -66,6 +67,7 @@ export const AppToolbar = () => {
               }}
             >
               <OpenFile></OpenFile>
+              <RecentFiles></RecentFiles>
               <SaveToFile></SaveToFile>
               <SaveAsFile></SaveAsFile>
               <SaveAsImage></SaveAsImage>

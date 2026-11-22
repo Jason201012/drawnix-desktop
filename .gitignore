@@ -41,5 +41,9 @@ Thumbs.db
 .nx/cache
 .nx/workspace-data
 
+# Tauri desktop shell
+src-tauri/target
+src-tauri/gen/schemas
+
 .claude/worktrees
 .claude/settings.local.json

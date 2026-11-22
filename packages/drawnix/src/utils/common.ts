@@ -1,5 +1,6 @@
 import { IS_APPLE, IS_MAC, PlaitBoard, toImage, ToImageOptions } from '@plait/core';
 import type { ResolutionType } from './utility-types';
+import { isDesktop, pickSave, writeDesktopBlob } from '../data/desktop';
 
 export const isPromiseLike = (value: any): value is Promise<ResolutionType<typeof value>> => {
   return (
@@ -53,6 +54,17 @@ export const boardToImage = (board: PlaitBoard, options: ToImageOptions = {}) =>
 };
 
 export function download(blob: Blob | MediaSource, filename: string) {
+  if (isDesktop && blob instanceof Blob) {
+    const extension = filename.split('.').pop() ?? '';
+    pickSave(filename, [{ name: filename, extensions: [extension] }])
+      .then(async (path) => {
+        if (path) {
+          await writeDesktopBlob(path, blob);
+        }
+      })
+      .catch((error) => console.error(error));
+    return;
+  }
   const a = document.createElement('a');
   const url = window.URL.createObjectURL(blob);
   a.href = url;
