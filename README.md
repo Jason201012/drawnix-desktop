@@ -42,6 +42,34 @@
 
 [*English README*](https://github.com/plait-board/drawnix/blob/develop/README_en.md)
 
+## 本地桌面版（本仓库新增）
+
+在 upstream 基础上用 Tauri 2 套壳：离线双击即用，画板保存为真实 `.drawnix` 文件，而不是浏览器缓存。
+
+- 💾 自动保存（防抖 600ms）+ 关闭前落盘 + 重启恢复上次画板
+- 📂 原生打开 / 另存为 / 导出 PNG、SVG 对话框
+- 🕘 菜单「最近打开」，窗口标题显示当前文件
+- 🪟 单实例：第二次启动带文件参数时转发给已开窗口
+- 🔗 安装包注册 `.drawnix` 文件关联
+
+### 构建
+
+```bash
+npm install
+npm run desktop:dev    # 开发模式
+npm run desktop:build  # 产出绿色 exe 与 NSIS 安装包
+```
+
+产物：`src-tauri/target/release/drawnix-desktop.exe` 与
+`src-tauri/target/release/bundle/nsis/*-setup.exe`。
+默认画板目录 `<文档>/Drawnix/`；应用状态 `<AppData>/com.drawnix.desktop/state.json`。
+
+浏览器运行方式不变：`npm run start`（仍走浏览器缓存）。
+
+> 网络受限环境：cargo 拉取 crates 需 `CARGO_HTTP_CHECK_REVOKE=false`；
+> NSIS 工具链可预先放入 `%LOCALAPPDATA%\tauri\NSIS`
+> （含 `Plugins/x86-unicode/additional/nsis_tauri_utils.dll`，v0.5.3）以跳过下载。
+
 ## 特性
 
 - 💯 免费 + 开源

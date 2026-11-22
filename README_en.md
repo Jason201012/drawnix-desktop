@@ -42,6 +42,31 @@
 
 [*中文*](https://github.com/plait-board/drawnix/blob/develop/README.md)
 
+## Local Desktop Edition (added in this repository)
+
+A Tauri 2 shell over upstream: offline, double-click to run, boards persist as real
+`.drawnix` files instead of browser storage.
+
+- 💾 Debounced auto-save (600ms), flush on close, restores last board on launch
+- 📂 Native open / save-as / export PNG & SVG dialogs
+- 🕘 "Recent files" menu entries, window title shows the current file
+- 🪟 Single instance: a second launch with a file path forwards it to the running window
+- 🔗 The installer registers the `.drawnix` file association
+
+### Build
+
+```bash
+npm install
+npm run desktop:dev    # development
+npm run desktop:build  # portable exe + NSIS installer
+```
+
+Artifacts: `src-tauri/target/release/drawnix-desktop.exe` and
+`src-tauri/target/release/bundle/nsis/*-setup.exe`.
+Default board folder `<Documents>/Drawnix/`; app state `<AppData>/com.drawnix.desktop/state.json`.
+
+The browser workflow is unchanged: `npm run start` (still uses browser storage).
+
 ## Features
 
 - 💯 Free and Open Source
