@@ -84,6 +84,7 @@ const arTranslations: Translations = {
 
   // Menu items
   'menu.open': 'فتح',
+  'menu.newMindMap': 'خريطة ذهنية جديدة',
   'menu.saveFile': 'حفظ إلى الملف الحالي',
   'menu.saveAsFile': 'حفظ باسم',
   'menu.exportImage': 'تصدير صورة',

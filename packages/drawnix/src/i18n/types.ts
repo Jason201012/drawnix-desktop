@@ -89,6 +89,7 @@ export interface Translations {
 
   // Menu items
   'menu.open': string;
+  'menu.newMindMap': string;
   'menu.saveFile': string;
   'menu.saveAsFile': string;
   'menu.exportImage': string;

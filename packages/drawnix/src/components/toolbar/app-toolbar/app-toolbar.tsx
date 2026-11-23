@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../popover/popover';
 import { useState } from 'react';
 import {
   CleanBoard,
+  NewMindMap,
   OpenFile,
   RecentFiles,
   SaveAsFile,
@@ -66,6 +67,7 @@ export const AppToolbar = () => {
                 setAppMenuOpen(false);
               }}
             >
+              <NewMindMap></NewMindMap>
               <OpenFile></OpenFile>
               <RecentFiles></RecentFiles>
               <SaveToFile></SaveToFile>

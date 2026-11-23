@@ -85,6 +85,7 @@ const viTranslations: Translations = {
 
   // Menu items
   'menu.open': 'Mở',
+  'menu.newMindMap': 'Sơ đồ tư duy mới',
   'menu.saveFile': 'Lưu vào tệp hiện tại',
   'menu.saveAsFile': 'Lưu thành',
   'menu.exportImage': 'Xuất hình ảnh',

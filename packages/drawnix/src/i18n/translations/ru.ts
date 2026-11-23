@@ -85,6 +85,7 @@ const ruTranslations: Translations = {
 
   // Menu items
   'menu.open': 'Открыть',
+  'menu.newMindMap': 'Новая ментальная карта',
   'menu.saveFile': 'Сохранить в текущий файл',
   'menu.saveAsFile': 'Сохранить как',
   'menu.exportImage': 'Экспортировать',

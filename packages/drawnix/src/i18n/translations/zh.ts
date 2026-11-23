@@ -85,6 +85,7 @@ const zhTranslations: Translations = {
   'language.vietnamese': 'Tiếng Việt',
   // Menu items
   'menu.open': '打开',
+  'menu.newMindMap': '新建思维导图',
   'menu.saveFile': '保存到当前文件',
   'menu.saveAsFile': '另存为',
   'menu.exportImage': '导出图片',

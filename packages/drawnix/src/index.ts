@@ -2,6 +2,7 @@ export * from './drawnix';
 export * from './utils';
 export * from './i18n';
 export { serializeAsJSON } from './data/json';
+export { EVENT } from './constants';
 export type { DrawnixBoard } from './hooks/use-drawnix';
 export {
   isDesktop,

@@ -26,6 +26,7 @@ export enum EVENT {
   VISIBILITY_CHANGE = 'visibilitychange',
   SCROLL = 'scroll',
   MENU_ITEM_SELECT = 'menu.itemSelect',
+  NEW_MIND_MAP = 'new-mind-map',
   MESSAGE = 'message',
   FULLSCREENCHANGE = 'fullscreenchange',
 }

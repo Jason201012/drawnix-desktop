@@ -1,4 +1,4 @@
-import { ExportImageIcon, GithubIcon, OpenFileIcon, SaveFileIcon, TrashIcon } from '../../icons';
+import { ExportImageIcon, GithubIcon, MindIcon, OpenFileIcon, SaveFileIcon, TrashIcon } from '../../icons';
 import { useBoard, useListRender } from '@plait-board/react-board';
 import { BoardTransforms, PlaitBoard, PlaitElement, PlaitTheme, Viewport } from '@plait/core';
 import { loadFromJSON, saveAsJSON, saveJSON } from '../../../data/json';
@@ -20,6 +20,24 @@ import {
   getRecentBoards,
   subscribeRecentBoards,
 } from '../../../data/desktop';
+
+export const NewMindMap = () => {
+  const { t } = useI18n();
+  return (
+    <MenuItem
+      data-testid="new-mind-map-button"
+      onSelect={() => {
+        window.dispatchEvent(new CustomEvent(EVENT.NEW_MIND_MAP, { bubbles: true }));
+      }}
+      icon={MindIcon}
+      aria-label={t('menu.newMindMap')}
+      shortcut={getShortcutKey('CtrlOrCmd+T')}
+    >
+      {t('menu.newMindMap')}
+    </MenuItem>
+  );
+};
+NewMindMap.displayName = 'NewMindMap';
 
 export const SaveToFile = () => {
   const board = useBoard();

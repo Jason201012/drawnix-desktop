@@ -83,6 +83,7 @@ const enTranslations: Translations = {
   'language.vietnamese': 'Tiếng Việt',
   // Menu items
   'menu.open': 'Open',
+  'menu.newMindMap': 'New mind map',
   'menu.saveFile': 'Save to current file',
   'menu.saveAsFile': 'Save As',
   'menu.exportImage': 'Export Image',
