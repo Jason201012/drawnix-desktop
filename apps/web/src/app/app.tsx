@@ -354,7 +354,7 @@ export function App() {
       return;
     }
     const tab = tabs.find((item) => item.id === activeId);
-    void getCurrentWindow().setTitle(`${tab ? tab.title : 'Drawnix'} - Drawnix`);
+    void getCurrentWindow().setTitle(tab ? `${tab.title} - Drawnix` : 'Drawnix');
   }, [tabs, activeId, loaded]);
 
   useEffect(() => {

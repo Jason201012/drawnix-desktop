@@ -27,3 +27,31 @@ body {
     padding: 8px;
     opacity: 0.5;
 }
+
+/* 上游工具栏按桌面宽度绝对定位，窄窗口会互相重叠；按宽度重排为多行 */
+@media (max-width: 900px) {
+    #root .drawnix .app-toolbar {
+        top: 12px;
+        left: 12px;
+    }
+    #root .drawnix .draw-toolbar {
+        top: 12px;
+    }
+    #root .drawnix .zoom-toolbar {
+        top: 60px;
+        right: 12px;
+    }
+    #root .drawnix .theme-toolbar {
+        bottom: 12px;
+        right: 12px;
+    }
+}
+
+@media (max-width: 700px) {
+    #root .drawnix .draw-toolbar {
+        top: 60px;
+    }
+    #root .drawnix .zoom-toolbar {
+        top: 108px;
+    }
+}
