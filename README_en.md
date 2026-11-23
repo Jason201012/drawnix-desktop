@@ -48,6 +48,8 @@ A Tauri 2 shell over upstream: offline, double-click to run, boards persist as r
 `.drawnix` files instead of browser storage.
 
 - 💾 Debounced auto-save (600ms), flush on close, restores last board on launch
+- 🗂 Multi-tab workspace: new blank mind-map tabs via menu, tab-strip button or Ctrl+T;
+  switching preserves content and undo stack; unsaved tabs ask before discarding
 - 📂 Native open / save-as / export PNG & SVG dialogs
 - 🕘 "Recent files" menu entries, window title shows the current file
 - 🪟 Single instance: a second launch with a file path forwards it to the running window
