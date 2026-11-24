@@ -52,6 +52,16 @@ export const defaultBoardPath = () => invoke<string>('default_board_path');
 
 export const launchFilePath = () => invoke<string | null>('launch_file_path');
 
+export type CreatedMindMap = { folder_path: string; file_path: string };
+
+export const createMindMap = (contents: string) =>
+  invoke<CreatedMindMap>('create_mind_map', { contents });
+
+export const saveBoardVersion = (folderPath: string, version: number, contents: string) =>
+  invoke<void>('save_board_version', { folderPath, version, contents });
+
+export const readBoardVersion = (path: string) => invoke<string>('read_board_version', { path });
+
 const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = '';
   const chunk = 0x8000;

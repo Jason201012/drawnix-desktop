@@ -884,6 +884,8 @@ name = "drawnix-desktop"
 version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
+ "flate2",
  "serde",
  "serde_json",
  "tauri",

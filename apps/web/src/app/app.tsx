@@ -8,17 +8,18 @@ import {
   fileNameOf,
   readFileText,
   writeFileText,
-  fileExists,
   readAppState,
   writeAppState,
-  defaultBoardPath,
   launchFilePath,
+  createMindMap,
+  saveBoardVersion,
   getRecentBoards,
   setRecentBoards,
   OPEN_RECENT_EVENT,
   EVENT,
 } from '@drawnix/drawnix';
 import { PlaitBoard, PlaitElement, PlaitTheme, Viewport } from '@plait/core';
+import type { BoardChangeData } from '@plait-board/react-board';
 import { MindPointerType } from '@plait/mind';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
@@ -43,6 +44,8 @@ type BoardTab = {
   id: string;
   title: string;
   filePath: string | null;
+  versionDir: string | null;
+  nextVersion: number;
   value: AppValue;
   toolState?: Partial<DrawnixToolState>;
   dirty: boolean;
@@ -74,6 +77,20 @@ const parseBoard = (raw: string): AppValue | null => {
   return null;
 };
 
+const emptyBoardJSON = () =>
+  JSON.stringify(
+    {
+      type: 'drawnix',
+      version: 1,
+      source: 'web',
+      elements: [],
+      viewport: { zoom: 1, origination: [0, 0] },
+      theme: { themeColorMode: 'default' },
+    },
+    null,
+    2
+  );
+
 export function App() {
   const [tabs, setTabs] = useState<BoardTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -84,6 +101,7 @@ export function App() {
   });
   const [loaded, setLoaded] = useState(false);
   const [closeRequest, setCloseRequest] = useState<string | null>(null);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
   const tabsRef = useRef<BoardTab[]>([]);
   const activeRef = useRef<string | null>(null);
@@ -91,6 +109,8 @@ export function App() {
   const preferenceRef = useRef(preference);
   const boardRefs = useRef(new Map<string, PlaitBoard>());
   const fileTimers = useRef(new Map<string, number>());
+  const versionQueues = useRef(new Map<string, Promise<void>>());
+  const userInteracted = useRef(new Set<string>());
   const persistTimer = useRef<number | undefined>(undefined);
   const loadGuard = useRef(false);
 
@@ -104,13 +124,15 @@ export function App() {
     setActiveId(id);
   };
 
-  const writeWorkspace = () => {
+  const writeWorkspace = async () => {
     const payload = {
-      tabs: tabsRef.current.map(({ id, title, filePath, value, toolState }) => ({
+      tabs: tabsRef.current.map(({ id, title, filePath, versionDir, nextVersion, value, toolState }) => ({
         id,
         title,
         filePath,
-        value,
+        versionDir,
+        nextVersion,
+        value: isDesktop && (filePath || versionDir) ? undefined : value,
         toolState,
       })),
       activeId: activeRef.current,
@@ -118,25 +140,78 @@ export function App() {
       recentBoards: getRecentBoards(),
     };
     if (isDesktop) {
-      void writeAppState(payload);
+      await writeAppState(payload);
     } else {
-      void localforage.setItem(WORKSPACE_KEY, payload);
+      await localforage.setItem(WORKSPACE_KEY, payload);
     }
   };
 
   const schedulePersist = () => {
     window.clearTimeout(persistTimer.current);
-    persistTimer.current = window.setTimeout(writeWorkspace, PERSIST_DEBOUNCE_MS);
+    persistTimer.current = window.setTimeout(() => {
+      void writeWorkspace().catch((error) => {
+        console.error(error);
+        setStorageError(
+          preferenceRef.current.language === 'zh'
+            ? `保存会话状态失败：${String(error)}`
+            : `Failed to save workspace state: ${String(error)}`
+        );
+      });
+    }, PERSIST_DEBOUNCE_MS);
   };
 
   const flushTabFile = async (tabId: string) => {
     const tab = tabsRef.current.find((item) => item.id === tabId);
     const board = boardRefs.current.get(tabId);
-    if (!tab?.filePath || !board) {
+    if (!tab || !board) {
       return;
     }
-    await writeFileText(tab.filePath, serializeAsJSON(board));
+    if (tab.filePath) {
+      await writeFileText(tab.filePath, serializeAsJSON(board));
+    }
+    const queue = versionQueues.current.get(tabId);
+    if (queue) {
+      await queue;
+    }
     commitTabs(tabsRef.current.map((item) => (item.id === tabId ? { ...item, dirty: false } : item)));
+  };
+
+  const enqueueVersionSave = (tabId: string) => {
+    const tab = tabsRef.current.find((item) => item.id === tabId);
+    const board = boardRefs.current.get(tabId);
+    if (!tab?.versionDir || !board || !userInteracted.current.has(tabId)) {
+      return;
+    }
+    const version = tab.nextVersion + 1;
+    const folderPath = tab.versionDir;
+    const contents = serializeAsJSON(board);
+    commitTabs(
+      tabsRef.current.map((item) =>
+        item.id === tabId ? { ...item, nextVersion: version, dirty: true } : item
+      )
+    );
+    const previous = versionQueues.current.get(tabId) ?? Promise.resolve();
+    const task = previous
+      .catch(() => undefined)
+      .then(() => saveBoardVersion(folderPath, version, contents))
+      .then(() => {
+        commitTabs(
+          tabsRef.current.map((item) =>
+            item.id === tabId && item.nextVersion === version ? { ...item, dirty: false } : item
+          )
+        );
+      })
+      .catch((error) => {
+        console.error(error);
+        setStorageError(
+          preferenceRef.current.language === 'zh'
+            ? `保存版本 ${version} 失败：${String(error)}`
+            : `Failed to save version ${version}: ${String(error)}`
+        );
+        throw error;
+      });
+    versionQueues.current.set(tabId, task);
+    void task.catch(() => undefined);
   };
 
   const scheduleFileSave = (tabId: string) => {
@@ -153,7 +228,7 @@ export function App() {
     setRecentBoards([path, ...getRecentBoards().filter((item) => item !== path)].slice(0, 8));
   };
 
-  const newMindTab = () => {
+  const newMindTab = async () => {
     const base = preferenceRef.current.language === 'zh' ? '思维导图' : 'Mind map';
     let index = 1;
     for (const tab of tabsRef.current) {
@@ -162,10 +237,29 @@ export function App() {
         index = Math.max(index, parseInt(matched[1], 10) + 1);
       }
     }
+    let versionDir: string | null = null;
+    let title = `${base} ${index}`;
+    if (isDesktop) {
+      try {
+        const created = await createMindMap(emptyBoardJSON());
+        versionDir = created.folder_path;
+        title = fileNameOf(created.folder_path);
+      } catch (error) {
+        console.error(error);
+        setStorageError(
+          preferenceRef.current.language === 'zh'
+            ? `无法创建导图文件夹：${String(error)}`
+            : `Could not create the mind-map folder: ${String(error)}`
+        );
+        return;
+      }
+    }
     const tab: BoardTab = {
       id: uid(),
-      title: `${base} ${index}`,
+      title,
       filePath: null,
+      versionDir,
+      nextVersion: 1,
       value: { children: [] },
       toolState: { pointer: MindPointerType.mind },
       dirty: false,
@@ -181,6 +275,8 @@ export function App() {
     commitTabs(next);
     window.clearTimeout(fileTimers.current.get(id));
     fileTimers.current.delete(id);
+    versionQueues.current.delete(id);
+    userInteracted.current.delete(id);
     boardRefs.current.delete(id);
     if (activeRef.current === id) {
       commitActive(next[Math.min(position, next.length - 1)]?.id ?? null);
@@ -198,7 +294,7 @@ export function App() {
     if (!tab) {
       return;
     }
-    if (!tab.filePath && tab.value.children.length > 0) {
+    if (!tab.filePath && !tab.versionDir && tab.value.children.length > 0) {
       requestClose(id);
       return;
     }
@@ -223,7 +319,15 @@ export function App() {
     if (!value) {
       return;
     }
-    const tab: BoardTab = { id: uid(), title: fileNameOf(path), filePath: path, value, dirty: false };
+    const tab: BoardTab = {
+      id: uid(),
+      title: fileNameOf(path),
+      filePath: path,
+      versionDir: null,
+      nextVersion: 1,
+      value,
+      dirty: false,
+    };
     commitTabs([...tabsRef.current, tab]);
     commitActive(tab.id);
     rememberBoard(path);
@@ -253,6 +357,36 @@ export function App() {
       if (Array.isArray(stored?.recentBoards)) {
         setRecentBoards(stored.recentBoards as string[]);
       }
+      if (isDesktop) {
+        const launch = await launchFilePath();
+        if (launch) {
+          try {
+            const value = parseBoard(await readFileText(launch));
+            if (value) {
+              const tab: BoardTab = {
+                id: uid(),
+                title: fileNameOf(launch),
+                filePath: launch,
+                versionDir: null,
+                nextVersion: 1,
+                value,
+                dirty: false,
+              };
+              commitTabs([tab]);
+              commitActive(tab.id);
+              rememberBoard(launch);
+              setLoaded(true);
+              return;
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }
+        await newMindTab();
+        setLoaded(true);
+        return;
+      }
+
       let restored: BoardTab[] = [];
       let active: string | null = null;
       if (Array.isArray(stored?.tabs)) {
@@ -260,26 +394,14 @@ export function App() {
           id: tab.id,
           title: tab.title,
           filePath: tab.filePath ?? null,
+          versionDir: null,
+          nextVersion: 1,
           value: tab.value ?? { children: [] },
           toolState: tab.toolState,
           dirty: false,
         }));
         active = (stored.activeId as string) ?? null;
-      } else if (isDesktop && stored?.boardPath) {
-        const path = stored.boardPath as string;
-        const value = (await fileExists(path)) ? parseBoard(await readFileText(path)) : null;
-        restored = [
-          {
-            id: uid(),
-            title: fileNameOf(path),
-            filePath: path,
-            value: value ?? { children: [] },
-            toolState: stored.toolState as Partial<DrawnixToolState>,
-            dirty: false,
-          },
-        ];
-        active = restored[0].id;
-      } else if (!isDesktop) {
+      } else {
         const [legacyValue, legacyTool] = await Promise.all([
           localforage.getItem(MAIN_BOARD_CONTENT_KEY),
           localforage.getItem(MAIN_BOARD_TOOL_STATE_KEY),
@@ -289,6 +411,8 @@ export function App() {
             id: uid(),
             title: preferenceRef.current.language === 'zh' ? '未命名' : 'Untitled',
             filePath: null,
+            versionDir: null,
+            nextVersion: 1,
             value: (legacyValue as AppValue) ?? { children: [] },
             toolState: legacyTool as Partial<DrawnixToolState>,
             dirty: false,
@@ -296,48 +420,18 @@ export function App() {
         ];
         active = restored[0].id;
       }
-      if (isDesktop) {
-        for (const tab of restored) {
-          if (tab.filePath && (await fileExists(tab.filePath))) {
-            tab.value = parseBoard(await readFileText(tab.filePath)) ?? tab.value;
-          }
-        }
-        const launch = await launchFilePath();
-        if (launch && !restored.some((tab) => tab.filePath === launch)) {
-          const value = parseBoard(await readFileText(launch));
-          if (value) {
-            const tab: BoardTab = {
-              id: uid(),
-              title: fileNameOf(launch),
-              filePath: launch,
-              value,
-              dirty: false,
-            };
-            restored.push(tab);
-            active = tab.id;
-            rememberBoard(launch);
-          }
-        }
-      }
       if (restored.length === 0) {
-        if (isDesktop) {
-          const path = await defaultBoardPath();
-          const value = (await fileExists(path)) ? parseBoard(await readFileText(path)) : null;
-          restored = [
-            { id: uid(), title: fileNameOf(path), filePath: path, value: value ?? { children: [] }, dirty: false },
-          ];
-        } else {
-          restored = [
-            {
-              id: uid(),
-              title: preferenceRef.current.language === 'zh' ? '未命名' : 'Untitled',
-              filePath: null,
-              value: { children: [] },
-              dirty: false,
-            },
-          ];
-        }
-        active = restored[0].id;
+        restored = [
+          {
+            id: uid(),
+            title: preferenceRef.current.language === 'zh' ? '未命名' : 'Untitled',
+            filePath: null,
+            versionDir: null,
+            nextVersion: 1,
+            value: { children: [] },
+            dirty: false,
+          },
+        ];
       }
       if (!active || !restored.some((tab) => tab.id === active)) {
         active = restored[0].id;
@@ -397,6 +491,14 @@ export function App() {
     };
     const onNewMind = () => newMindTab();
     const onRecent = (event: Event) => void openPath((event as CustomEvent<string>).detail);
+    const markInteraction = () => {
+      if (activeRef.current) {
+        userInteracted.current.add(activeRef.current);
+      }
+    };
+    window.addEventListener('pointerdown', markInteraction, true);
+    window.addEventListener('wheel', markInteraction, { capture: true, passive: true });
+    window.addEventListener('keydown', markInteraction, true);
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener(EVENT.NEW_MIND_MAP, onNewMind);
     window.addEventListener(OPEN_RECENT_EVENT, onRecent);
@@ -404,6 +506,9 @@ export function App() {
       ? listen<string>('open-file', (event) => void openPath(event.payload))
       : null;
     return () => {
+      window.removeEventListener('pointerdown', markInteraction, true);
+      window.removeEventListener('wheel', markInteraction, true);
+      window.removeEventListener('keydown', markInteraction, true);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener(EVENT.NEW_MIND_MAP, onNewMind);
       window.removeEventListener(OPEN_RECENT_EVENT, onRecent);
@@ -418,14 +523,21 @@ export function App() {
     const appWindow = getCurrentWindow();
     const unlisten = appWindow.onCloseRequested(async (event) => {
       event.preventDefault();
-      for (const tab of tabsRef.current) {
-        window.clearTimeout(fileTimers.current.get(tab.id));
-        if (tab.filePath) {
+      try {
+        for (const tab of tabsRef.current) {
+          window.clearTimeout(fileTimers.current.get(tab.id));
           await flushTabFile(tab.id);
         }
+        await writeWorkspace();
+        await appWindow.destroy();
+      } catch (error) {
+        console.error(error);
+        setStorageError(
+          preferenceRef.current.language === 'zh'
+            ? `关闭前保存失败，窗口已保留：${String(error)}`
+            : `Could not save before closing; the window was kept open: ${String(error)}`
+        );
       }
-      writeWorkspace();
-      await appWindow.destroy();
     });
     return () => {
       void unlisten.then((fn) => fn());
@@ -439,7 +551,7 @@ export function App() {
   const views: TabView[] = tabs.map((tab) => ({
     id: tab.id,
     title: tab.title,
-    bound: !!tab.filePath,
+    bound: !!tab.filePath || !!tab.versionDir,
     dirty: tab.dirty,
     active: tab.id === activeId,
   }));
@@ -457,6 +569,14 @@ export function App() {
         onNew={newMindTab}
       />
       <div className="workspace__panels">
+        {storageError && (
+          <div className="storage-error" role="alert">
+            <span>{storageError}</span>
+            <button type="button" onClick={() => setStorageError(null)}>
+              {preference.language === 'zh' ? '关闭' : 'Dismiss'}
+            </button>
+          </div>
+        )}
         {tabs.map((tab) => (
           <div
             key={tab.id}
@@ -484,13 +604,25 @@ export function App() {
                 updatePreference({ copyTransparent, exportTransparent });
               }}
               onChange={(value) => {
-                const next = value as AppValue;
+                const boardChange = value as BoardChangeData;
+                const next = boardChange as AppValue;
+                const interacted = userInteracted.current.has(tab.id);
+                const shouldSnapshot = boardChange.operations.some(
+                  (operation) =>
+                    operation.type !== 'set_selection' && operation.type !== 'set_viewport'
+                );
                 commitTabs(
                   tabsRef.current.map((item) =>
-                    item.id === tab.id ? { ...item, value: next, dirty: true } : item
+                    item.id === tab.id
+                      ? { ...item, value: next, dirty: interacted && shouldSnapshot ? true : item.dirty }
+                      : item
                   )
                 );
-                scheduleFileSave(tab.id);
+                if (shouldSnapshot && tab.versionDir) {
+                  enqueueVersionSave(tab.id);
+                } else if (shouldSnapshot && tab.filePath) {
+                  scheduleFileSave(tab.id);
+                }
                 schedulePersist();
               }}
               onToolStateChange={(toolState) => {

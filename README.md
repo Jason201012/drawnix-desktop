@@ -44,15 +44,22 @@
 
 ## 本地桌面版（本仓库新增）
 
-在 upstream 基础上用 Tauri 2 套壳：离线双击即用，画板保存为真实 `.drawnix` 文件，而不是浏览器缓存。
+在 upstream 基础上用 Tauri 2 套壳：离线双击即用。桌面端每次启动新建思维导图，
+每次内容/主题编辑以及回退/重做都会留下一个 gzip 压缩版本；导入的 `.drawnix`
+仍可用原生对话框打开、另存与导出。
 
-- 💾 自动保存（防抖 600ms）+ 关闭前落盘 + 重启恢复上次画板
+- 💾 启动即新建；逐操作版本保存（选择与平移不占版本号），关闭前等待保存队列完成
 - 🗂 多标签工作区：菜单 / 标签条按钮 / Ctrl+T 新建空白思维导图标签，
-  切换保留内容与撤销栈，未保存标签关闭前弹丢弃确认
+  每份标签有独立版本目录；切换保留内容与撤销栈
 - 📂 原生打开 / 另存为 / 导出 PNG、SVG 对话框
 - 🕘 菜单「最近打开」，窗口标题显示当前文件
 - 🪟 单实例：第二次启动带文件参数时转发给已开窗口
 - 🔗 安装包注册 `.drawnix` 文件关联
+
+桌面端保存目录为 `<文档>/Drawnix/YYYYMMDD/1`、`2`、`3`……（文件无扩展名，
+内容为 gzip 压缩的 `.drawnix` JSON）；当日第二份起文件夹为 `YYYYMMDD-2`、
+`YYYYMMDD-3`……。应用状态 `<AppData>/com.drawnix.desktop/state.json` 只存偏好、
+最近文件和标签元数据，不重复存已落盘画板。
 
 ### 构建
 
@@ -64,7 +71,6 @@ npm run desktop:build  # 产出绿色 exe 与 NSIS 安装包
 
 产物：`src-tauri/target/release/drawnix-desktop.exe` 与
 `src-tauri/target/release/bundle/nsis/*-setup.exe`。
-默认画板目录 `<文档>/Drawnix/`；应用状态 `<AppData>/com.drawnix.desktop/state.json`。
 
 浏览器运行方式不变：`npm run start`（仍走浏览器缓存）。
 

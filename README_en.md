@@ -44,16 +44,23 @@
 
 ## Local Desktop Edition (added in this repository)
 
-A Tauri 2 shell over upstream: offline, double-click to run, boards persist as real
-`.drawnix` files instead of browser storage.
+A Tauri 2 shell over upstream: offline, double-click to run. Each desktop launch starts
+a new mind map; every content/theme edit and every undo/redo leaves one gzip-compressed
+snapshot. Imported `.drawnix` files still support native open, save-as and export.
 
-- 💾 Debounced auto-save (600ms), flush on close, restores last board on launch
+- 💾 New map on launch; one snapshot per content/theme operation (selection and panning
+  do not consume versions); closing waits for the save queue
 - 🗂 Multi-tab workspace: new blank mind-map tabs via menu, tab-strip button or Ctrl+T;
-  switching preserves content and undo stack; unsaved tabs ask before discarding
+  each tab owns a version folder, and switching preserves content and undo stack
 - 📂 Native open / save-as / export PNG & SVG dialogs
 - 🕘 "Recent files" menu entries, window title shows the current file
 - 🪟 Single instance: a second launch with a file path forwards it to the running window
 - 🔗 The installer registers the `.drawnix` file association
+
+Desktop snapshots live at `<Documents>/Drawnix/YYYYMMDD/1`, `2`, `3`... (no extension;
+gzip-compressed `.drawnix` JSON). The second map of a day uses `YYYYMMDD-2`, then
+`YYYYMMDD-3`... App state `<AppData>/com.drawnix.desktop/state.json` stores preferences,
+recent files and tab metadata only, never duplicate board bodies.
 
 ### Build
 
@@ -65,7 +72,6 @@ npm run desktop:build  # portable exe + NSIS installer
 
 Artifacts: `src-tauri/target/release/drawnix-desktop.exe` and
 `src-tauri/target/release/bundle/nsis/*-setup.exe`.
-Default board folder `<Documents>/Drawnix/`; app state `<AppData>/com.drawnix.desktop/state.json`.
 
 The browser workflow is unchanged: `npm run start` (still uses browser storage).
 

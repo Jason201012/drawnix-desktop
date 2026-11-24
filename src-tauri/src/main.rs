@@ -27,6 +27,9 @@ fn main() {
             storage::write_app_state,
             storage::default_board_path,
             storage::launch_file_path,
+            storage::create_mind_map,
+            storage::save_board_version,
+            storage::read_board_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Drawnix");
