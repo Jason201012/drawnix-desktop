@@ -111,6 +111,8 @@ export function App() {
   const fileTimers = useRef(new Map<string, number>());
   const versionQueues = useRef(new Map<string, Promise<void>>());
   const userInteracted = useRef(new Set<string>());
+  const pointerGestureTab = useRef<string | null>(null);
+  const pendingVersionTabs = useRef(new Set<string>());
   const persistTimer = useRef<number | undefined>(undefined);
   const loadGuard = useRef(false);
 
@@ -496,7 +498,29 @@ export function App() {
         userInteracted.current.add(activeRef.current);
       }
     };
-    window.addEventListener('pointerdown', markInteraction, true);
+    const beginPointerGesture = () => {
+      const id = activeRef.current;
+      if (!id) {
+        return;
+      }
+      userInteracted.current.add(id);
+      pointerGestureTab.current = id;
+      pendingVersionTabs.current.delete(id);
+    };
+    const endPointerGesture = () => {
+      const id = pointerGestureTab.current;
+      if (!id) {
+        return;
+      }
+      pointerGestureTab.current = null;
+      if (pendingVersionTabs.current.delete(id)) {
+        enqueueVersionSave(id);
+      }
+    };
+    window.addEventListener('pointerdown', beginPointerGesture, true);
+    window.addEventListener('pointerup', endPointerGesture);
+    window.addEventListener('pointercancel', endPointerGesture);
+    window.addEventListener('blur', endPointerGesture);
     window.addEventListener('wheel', markInteraction, { capture: true, passive: true });
     window.addEventListener('keydown', markInteraction, true);
     window.addEventListener('keydown', onKeyDown);
@@ -506,7 +530,10 @@ export function App() {
       ? listen<string>('open-file', (event) => void openPath(event.payload))
       : null;
     return () => {
-      window.removeEventListener('pointerdown', markInteraction, true);
+      window.removeEventListener('pointerdown', beginPointerGesture, true);
+      window.removeEventListener('pointerup', endPointerGesture);
+      window.removeEventListener('pointercancel', endPointerGesture);
+      window.removeEventListener('blur', endPointerGesture);
       window.removeEventListener('wheel', markInteraction, true);
       window.removeEventListener('keydown', markInteraction, true);
       window.removeEventListener('keydown', onKeyDown);
@@ -526,6 +553,10 @@ export function App() {
       try {
         for (const tab of tabsRef.current) {
           window.clearTimeout(fileTimers.current.get(tab.id));
+          if (pendingVersionTabs.current.delete(tab.id)) {
+            pointerGestureTab.current = null;
+            enqueueVersionSave(tab.id);
+          }
           await flushTabFile(tab.id);
         }
         await writeWorkspace();
@@ -619,7 +650,11 @@ export function App() {
                   )
                 );
                 if (shouldSnapshot && tab.versionDir) {
-                  enqueueVersionSave(tab.id);
+                  if (pointerGestureTab.current === tab.id) {
+                    pendingVersionTabs.current.add(tab.id);
+                  } else {
+                    enqueueVersionSave(tab.id);
+                  }
                 } else if (shouldSnapshot && tab.filePath) {
                   scheduleFileSave(tab.id);
                 }
