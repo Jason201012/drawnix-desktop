@@ -91,6 +91,9 @@ const emptyBoardJSON = () =>
     2
   );
 
+const boardSignature = (value: AppValue) =>
+  JSON.stringify({ children: value.children, theme: value.theme });
+
 export function App() {
   const [tabs, setTabs] = useState<BoardTab[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -113,6 +116,7 @@ export function App() {
   const userInteracted = useRef(new Set<string>());
   const pointerGestureTab = useRef<string | null>(null);
   const pendingVersionTabs = useRef(new Set<string>());
+  const contentSignatures = useRef(new Map<string, string>());
   const persistTimer = useRef<number | undefined>(undefined);
   const loadGuard = useRef(false);
 
@@ -268,6 +272,7 @@ export function App() {
     };
     commitTabs([...tabsRef.current, tab]);
     commitActive(tab.id);
+    contentSignatures.current.set(tab.id, boardSignature(tab.value));
     schedulePersist();
   };
 
@@ -279,6 +284,7 @@ export function App() {
     fileTimers.current.delete(id);
     versionQueues.current.delete(id);
     userInteracted.current.delete(id);
+    contentSignatures.current.delete(id);
     boardRefs.current.delete(id);
     if (activeRef.current === id) {
       commitActive(next[Math.min(position, next.length - 1)]?.id ?? null);
@@ -332,6 +338,7 @@ export function App() {
     };
     commitTabs([...tabsRef.current, tab]);
     commitActive(tab.id);
+    contentSignatures.current.set(tab.id, boardSignature(value));
     rememberBoard(path);
     schedulePersist();
   };
@@ -642,20 +649,30 @@ export function App() {
                   (operation) =>
                     operation.type !== 'set_selection' && operation.type !== 'set_viewport'
                 );
+                const signature = boardSignature(next);
+                const contentChanged =
+                  shouldSnapshot && signature !== contentSignatures.current.get(tab.id);
+                if (contentChanged) {
+                  contentSignatures.current.set(tab.id, signature);
+                }
                 commitTabs(
                   tabsRef.current.map((item) =>
                     item.id === tab.id
-                      ? { ...item, value: next, dirty: interacted && shouldSnapshot ? true : item.dirty }
+                      ? {
+                          ...item,
+                          value: next,
+                          dirty: interacted && contentChanged ? true : item.dirty,
+                        }
                       : item
                   )
                 );
-                if (shouldSnapshot && tab.versionDir) {
+                if (contentChanged && tab.versionDir) {
                   if (pointerGestureTab.current === tab.id) {
                     pendingVersionTabs.current.add(tab.id);
                   } else {
                     enqueueVersionSave(tab.id);
                   }
-                } else if (shouldSnapshot && tab.filePath) {
+                } else if (contentChanged && tab.filePath) {
                   scheduleFileSave(tab.id);
                 }
                 schedulePersist();

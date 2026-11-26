@@ -49,7 +49,8 @@ a new mind map; every content/theme edit and every undo/redo leaves one gzip-com
 snapshot. Imported `.drawnix` files still support native open, save-as and export.
 
 - 💾 New map on launch; one snapshot per content/theme operation (one pointer drag is
-  one snapshot; selection and panning do not consume versions); closing waits for the save queue
+  one snapshot; no-op operations with identical content signatures, selection and panning
+  do not consume versions); closing waits for the save queue
 - 🗂 Multi-tab workspace: new blank mind-map tabs via menu, tab-strip button or Ctrl+T;
   each tab owns a version folder, and switching preserves content and undo stack
 - 📂 Native open / save-as / export PNG & SVG dialogs
