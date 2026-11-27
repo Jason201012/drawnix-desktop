@@ -1,5 +1,5 @@
 import { Island } from '../island';
-import React from 'react';
+import React, { useContext, useState } from 'react';
 import { MenuContentPropsContext } from './common';
 import classNames from 'classnames';
 import './menu.scss';
@@ -10,6 +10,7 @@ const Menu = ({
   onSelect,
   style,
   containerStyle,
+  container,
 }: {
   children?: React.ReactNode;
   className?: string;
@@ -19,12 +20,17 @@ const Menu = ({
   onSelect?: (event: Event) => void;
   style?: React.CSSProperties;
   containerStyle?: React.CSSProperties;
+  container?: HTMLElement | null;
 }) => {
+  const parent = useContext(MenuContentPropsContext);
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const newClassName = classNames(`menu ${className}`).trim();
 
   return (
-    <MenuContentPropsContext.Provider value={{ onSelect }}>
-      <div className={newClassName} style={style} data-testid="menu">
+    <MenuContentPropsContext.Provider
+      value={{ onSelect, container: root ?? container ?? parent.container }}
+    >
+      <div ref={setRoot} className={newClassName} style={style} data-testid="menu">
         {
           <Island className="menu-container" padding={2} style={containerStyle}>
             {children}

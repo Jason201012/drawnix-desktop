@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { uiCopy } from './i18n';
 import './tab-strip.scss';
 
 export type TabView = {
@@ -50,32 +51,9 @@ const CloseGlyph = () => (
   </svg>
 );
 
-const copy = (language: string) =>
-  language === 'zh'
-    ? {
-        newTab: '新建思维导图',
-        close: '关闭标签',
-        unsaved: '未保存',
-        tabs: '画板标签',
-        emptyTitle: '开始一张新的思维导图',
-        emptySub: '空白画布已就绪。新建后点击画布放置中心主题，再用 Tab / Enter 生长分支。',
-        emptyAction: '新建思维导图',
-        emptyHint: '或按',
-      }
-    : {
-        newTab: 'New mind map',
-        close: 'Close tab',
-        unsaved: 'Unsaved',
-        tabs: 'Board tabs',
-        emptyTitle: 'Start a new mind map',
-        emptySub: 'A blank canvas is ready. Click it to place the central topic, then grow branches with Tab / Enter.',
-        emptyAction: 'New mind map',
-        emptyHint: 'or press',
-      };
-
 export const TabStrip = ({ tabs, language, onActivate, onClose, onNew }: TabStripProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const t = copy(language);
+  const t = uiCopy(language);
   const activeId = tabs.find((tab) => tab.active)?.id;
 
   useEffect(() => {
@@ -117,7 +95,7 @@ export const TabStrip = ({ tabs, language, onActivate, onClose, onNew }: TabStri
             <button
               type="button"
               className="tab-strip__close"
-              aria-label={`${t.close} ${tab.title}`}
+              aria-label={t.closeTab(tab.title)}
               onClick={(event) => {
                 event.stopPropagation();
                 onClose(tab.id);
@@ -148,14 +126,14 @@ export const DiscardDialog = ({
   onCancel: () => void;
   onConfirm: () => void;
 }) => {
-  const zh = language === 'zh';
+  const t = uiCopy(language);
   return (
     <div className="discard-dialog__scrim" role="presentation" onMouseDown={onCancel}>
       <div
         className="discard-dialog"
         role="alertdialog"
         aria-modal="true"
-        aria-label={zh ? '关闭未保存的标签' : 'Close unsaved tab'}
+        aria-label={t.discardTitle(title)}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="discard-dialog__mark" aria-hidden="true">
@@ -170,20 +148,14 @@ export const DiscardDialog = ({
             <circle cx="8" cy="11.4" r="0.8" fill="currentColor" />
           </svg>
         </div>
-        <h2 className="discard-dialog__title">
-          {zh ? `「${title}」尚未保存到文件` : `"${title}" is not saved to a file`}
-        </h2>
-        <p className="discard-dialog__body">
-          {zh
-            ? '关闭后这张画布的内容将丢失。你可以先取消，再用「另存为」把它保存为 .drawnix 文件。'
-            : 'Closing discards this canvas. Cancel first and use "Save As" to keep it as a .drawnix file.'}
-        </p>
+        <h2 className="discard-dialog__title">{t.discardTitle(title)}</h2>
+        <p className="discard-dialog__body">{t.discardBody}</p>
         <div className="discard-dialog__actions">
           <button type="button" className="discard-dialog__cancel" autoFocus onClick={onCancel}>
-            {zh ? '取消' : 'Cancel'}
+            {t.cancel}
           </button>
           <button type="button" className="discard-dialog__confirm" onClick={onConfirm}>
-            {zh ? '丢弃并关闭' : 'Discard & close'}
+            {t.discard}
           </button>
         </div>
       </div>
@@ -192,7 +164,7 @@ export const DiscardDialog = ({
 };
 
 export const EmptyWorkspace = ({ language, onNew }: { language: string; onNew: () => void }) => {
-  const t = copy(language);
+  const t = uiCopy(language);
   return (
     <div className="workspace__empty">
       <div className="workspace__empty-mark">

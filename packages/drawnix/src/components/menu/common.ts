@@ -4,6 +4,7 @@ import { composeEventHandlers } from '../../utils/common';
 
 export const MenuContentPropsContext = React.createContext<{
   onSelect?: (event: Event) => void;
+  container?: HTMLElement | null;
 }>({});
 
 export const getMenuItemClassName = (className = '', active = false) => {

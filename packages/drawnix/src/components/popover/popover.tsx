@@ -22,6 +22,7 @@ interface PopoverOptions {
   open?: boolean;
   sideOffset?: number;
   onOpenChange?: (open: boolean) => void;
+  outsidePress?: boolean;
 }
 
 export function usePopover({
@@ -31,6 +32,7 @@ export function usePopover({
   sideOffset,
   open: controlledOpen,
   onOpenChange: setControlledOpen,
+  outsidePress = true,
 }: PopoverOptions = {}) {
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(initialOpen);
   const [labelId, setLabelId] = React.useState<string | undefined>();
@@ -60,7 +62,7 @@ export function usePopover({
   const click = useClick(context, {
     enabled: controlledOpen == null,
   });
-  const dismiss = useDismiss(context);
+  const dismiss = useDismiss(context, { outsidePress });
   const role = useRole(context);
 
   const interactions = useInteractions([click, dismiss, role]);

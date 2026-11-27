@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { getMenuItemClassName, useHandleMenuItemClick } from './common';
+import React, { useState, useRef, useContext } from 'react';
+import { getMenuItemClassName, useHandleMenuItemClick, MenuContentPropsContext } from './common';
 import MenuItemContent from './menu-item-content';
 import { Popover, PopoverContent, PopoverTrigger } from '../popover/popover';
 
@@ -27,6 +27,7 @@ const MenuItem = ({
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onSelect'>) => {
   const [isOpen, setIsOpen] = useState(false);
   const closeTimeoutRef = useRef<number>();
+  const menuContentProps = useContext(MenuContentPropsContext);
   const handleClick = useHandleMenuItemClick(rest.onClick, onSelect);
   const hasSubmenu = !!submenu;
 
@@ -77,7 +78,11 @@ const MenuItem = ({
             {menuItemContent}
           </button>
         </PopoverTrigger>
-        <PopoverContent onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <PopoverContent
+          container={menuContentProps.container}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           {submenu}
         </PopoverContent>
       </Popover>

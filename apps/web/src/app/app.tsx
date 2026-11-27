@@ -25,6 +25,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import localforage from 'localforage';
 import { TabStrip, EmptyWorkspace, DiscardDialog, type TabView } from './tab-strip';
+import { uiCopy } from './i18n';
 
 type AppValue = {
   children: PlaitElement[];
@@ -157,11 +158,7 @@ export function App() {
     persistTimer.current = window.setTimeout(() => {
       void writeWorkspace().catch((error) => {
         console.error(error);
-        setStorageError(
-          preferenceRef.current.language === 'zh'
-            ? `保存会话状态失败：${String(error)}`
-            : `Failed to save workspace state: ${String(error)}`
-        );
+        setStorageError(uiCopy(preferenceRef.current.language).stateSaveError(String(error)));
       });
     }, PERSIST_DEBOUNCE_MS);
   };
@@ -210,9 +207,7 @@ export function App() {
       .catch((error) => {
         console.error(error);
         setStorageError(
-          preferenceRef.current.language === 'zh'
-            ? `保存版本 ${version} 失败：${String(error)}`
-            : `Failed to save version ${version}: ${String(error)}`
+          uiCopy(preferenceRef.current.language).versionSaveError(version, String(error))
         );
         throw error;
       });
@@ -252,11 +247,7 @@ export function App() {
         title = fileNameOf(created.folder_path);
       } catch (error) {
         console.error(error);
-        setStorageError(
-          preferenceRef.current.language === 'zh'
-            ? `无法创建导图文件夹：${String(error)}`
-            : `Could not create the mind-map folder: ${String(error)}`
-        );
+        setStorageError(uiCopy(preferenceRef.current.language).createFolderError(String(error)));
         return;
       }
     }
@@ -570,11 +561,7 @@ export function App() {
         await appWindow.destroy();
       } catch (error) {
         console.error(error);
-        setStorageError(
-          preferenceRef.current.language === 'zh'
-            ? `关闭前保存失败，窗口已保留：${String(error)}`
-            : `Could not save before closing; the window was kept open: ${String(error)}`
-        );
+        setStorageError(uiCopy(preferenceRef.current.language).closeSaveError(String(error)));
       }
     });
     return () => {
@@ -598,7 +585,10 @@ export function App() {
   const darkChrome = activeTheme === 'dark' || activeTheme === 'starry';
 
   return (
-    <div className={`workspace${darkChrome ? ' workspace--dark' : ''}`}>
+    <div
+      className={`workspace${darkChrome ? ' workspace--dark' : ''}`}
+      dir={preference.language === 'ar' ? 'rtl' : 'ltr'}
+    >
       <TabStrip
         tabs={views}
         language={preference.language}
@@ -611,7 +601,7 @@ export function App() {
           <div className="storage-error" role="alert">
             <span>{storageError}</span>
             <button type="button" onClick={() => setStorageError(null)}>
-              {preference.language === 'zh' ? '关闭' : 'Dismiss'}
+              {uiCopy(preference.language).dismiss}
             </button>
           </div>
         )}

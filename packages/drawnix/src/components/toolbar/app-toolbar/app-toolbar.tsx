@@ -63,6 +63,7 @@ export const AppToolbar = () => {
           </PopoverTrigger>
           <PopoverContent container={container}>
             <Menu
+              container={container}
               onSelect={() => {
                 setAppMenuOpen(false);
               }}
