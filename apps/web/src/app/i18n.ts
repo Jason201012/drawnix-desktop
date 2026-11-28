@@ -32,6 +32,17 @@ export const uiCopy = (language: string) => {
         nodes: (count: number) => `${count} 个节点`,
         versions: (count: number) => `${count} 个版本`,
         latest: '最新',
+        storage: '存储空间',
+        storageUsage: (maps: number, versions: number, size: string) =>
+          `${maps} 张导图 · ${versions} 个版本 · ${size}`,
+        keepLatest: '每张导图保留最近',
+        cleanupOldVersions: '清理旧版本',
+        cleanupTitle: (count: number, size: string) => `清理 ${count} 个旧版本（${size}）？`,
+        cleanupBody: (maps: number, count: number, size: string, keepLatest: number) =>
+          `将影响 ${maps} 张导图，删除 ${count} 个旧版本并释放 ${size}；每张导图保留最新 ${keepLatest} 版，此操作不可恢复。`,
+        cleanupConfirm: '确认清理',
+        cleanupResult: (count: number, size: string) => `已清理 ${count} 个旧版本，释放 ${size}。`,
+        keepLatestError: '保留版数必须是 1 到 999 的整数。',
         createFolderError: (error: string) => `无法创建导图文件夹：${error}`,
         versionSaveError: (version: number, error: string) => `保存版本 ${version} 失败：${error}`,
         stateSaveError: (error: string) => `保存会话状态失败：${error}`,
@@ -70,6 +81,18 @@ export const uiCopy = (language: string) => {
         nodes: (count: number) => `Узлов: ${count}`,
         versions: (count: number) => `Версий: ${count}`,
         latest: 'Последняя',
+        storage: 'Хранилище',
+        storageUsage: (maps: number, versions: number, size: string) =>
+          `${maps} карт · ${versions} версий · ${size}`,
+        keepLatest: 'Оставлять последних',
+        cleanupOldVersions: 'Удалить старые версии',
+        cleanupTitle: (count: number, size: string) => `Удалить ${count} старых версий (${size})?`,
+        cleanupBody: (maps: number, count: number, size: string, keepLatest: number) =>
+          `Затронет ${maps} карт, удалит ${count} старых версий и освободит ${size}; для каждой карты останутся последние ${keepLatest} версий. Отмена невозможна.`,
+        cleanupConfirm: 'Подтвердить удаление',
+        cleanupResult: (count: number, size: string) =>
+          `Удалено старых версий: ${count}, освобождено: ${size}.`,
+        keepLatestError: 'Количество версий должно быть целым числом от 1 до 999.',
         createFolderError: (error: string) => `Не удалось создать папку карты: ${error}`,
         versionSaveError: (version: number, error: string) =>
           `Не удалось сохранить версию ${version}: ${error}`,
@@ -111,6 +134,18 @@ export const uiCopy = (language: string) => {
         nodes: (count: number) => `${count} عقدة`,
         versions: (count: number) => `${count} إصدار`,
         latest: 'الأحدث',
+        storage: 'مساحة التخزين',
+        storageUsage: (maps: number, versions: number, size: string) =>
+          `${maps} خرائط · ${versions} إصدارًا · ${size}`,
+        keepLatest: 'الاحتفاظ بآخر',
+        cleanupOldVersions: 'تنظيف الإصدارات القديمة',
+        cleanupTitle: (count: number, size: string) => `تنظيف ${count} إصدارًا قديمًا (${size})؟`,
+        cleanupBody: (maps: number, count: number, size: string, keepLatest: number) =>
+          `سيؤثر على ${maps} خرائط، ويحذف ${count} إصدارًا قديمًا ويحرر ${size}؛ سيتم الاحتفاظ بآخر ${keepLatest} إصدارات لكل خريطة. لا يمكن التراجع.`,
+        cleanupConfirm: 'تأكيد التنظيف',
+        cleanupResult: (count: number, size: string) =>
+          `تم تنظيف ${count} إصدارًا قديمًا وتحرير ${size}.`,
+        keepLatestError: 'يجب أن يكون عدد الإصدارات المحتفظ بها عددًا صحيحًا من 1 إلى 999.',
         createFolderError: (error: string) => `تعذر إنشاء مجلد الخريطة: ${error}`,
         versionSaveError: (version: number, error: string) =>
           `تعذر حفظ الإصدار ${version}: ${error}`,
@@ -151,6 +186,18 @@ export const uiCopy = (language: string) => {
         nodes: (count: number) => `${count} nút`,
         versions: (count: number) => `${count} phiên bản`,
         latest: 'Mới nhất',
+        storage: 'Dung lượng lưu trữ',
+        storageUsage: (maps: number, versions: number, size: string) =>
+          `${maps} sơ đồ · ${versions} phiên bản · ${size}`,
+        keepLatest: 'Giữ lại phiên bản gần nhất',
+        cleanupOldVersions: 'Dọn phiên bản cũ',
+        cleanupTitle: (count: number, size: string) => `Dọn ${count} phiên bản cũ (${size})?`,
+        cleanupBody: (maps: number, count: number, size: string, keepLatest: number) =>
+          `Sẽ ảnh hưởng ${maps} sơ đồ, xóa ${count} phiên bản cũ và giải phóng ${size}; mỗi sơ đồ giữ lại ${keepLatest} phiên bản mới nhất. Không thể hoàn tác.`,
+        cleanupConfirm: 'Xác nhận dọn',
+        cleanupResult: (count: number, size: string) =>
+          `Đã dọn ${count} phiên bản cũ và giải phóng ${size}.`,
+        keepLatestError: 'Số phiên bản giữ lại phải là số nguyên từ 1 đến 999.',
         createFolderError: (error: string) => `Không thể tạo thư mục sơ đồ: ${error}`,
         versionSaveError: (version: number, error: string) =>
           `Không thể lưu phiên bản ${version}: ${error}`,
@@ -191,6 +238,18 @@ export const uiCopy = (language: string) => {
         nodes: (count: number) => `${count} nodes`,
         versions: (count: number) => `${count} versions`,
         latest: 'Latest',
+        storage: 'Storage',
+        storageUsage: (maps: number, versions: number, size: string) =>
+          `${maps} maps · ${versions} versions · ${size}`,
+        keepLatest: 'Keep latest per map',
+        cleanupOldVersions: 'Clean old versions',
+        cleanupTitle: (count: number, size: string) => `Clean ${count} old versions (${size})?`,
+        cleanupBody: (maps: number, count: number, size: string, keepLatest: number) =>
+          `This affects ${maps} maps, deletes ${count} old versions and frees ${size}; each map keeps its latest ${keepLatest} versions. This cannot be undone.`,
+        cleanupConfirm: 'Confirm cleanup',
+        cleanupResult: (count: number, size: string) =>
+          `Cleaned ${count} old versions and freed ${size}.`,
+        keepLatestError: 'Keep count must be an integer from 1 to 999.',
         createFolderError: (error: string) => `Could not create the mind-map folder: ${error}`,
         versionSaveError: (version: number, error: string) =>
           `Failed to save version ${version}: ${error}`,

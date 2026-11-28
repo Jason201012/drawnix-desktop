@@ -78,6 +78,26 @@ export type RecentMapInfo = {
 export const listRecentMaps = (limit: number) =>
   invoke<RecentMapInfo[]>('list_recent_maps', { limit });
 
+export type StorageStats = {
+  map_count: number;
+  version_count: number;
+  total_bytes: number;
+};
+
+export type StorageCleanupInfo = {
+  map_count: number;
+  version_count: number;
+  freed_bytes: number;
+};
+
+export const getStorageStats = () => invoke<StorageStats>('get_storage_stats');
+
+export const previewStorageCleanup = (keepLatest: number) =>
+  invoke<StorageCleanupInfo>('preview_storage_cleanup', { keepLatest });
+
+export const cleanupStorage = (keepLatest: number) =>
+  invoke<StorageCleanupInfo>('cleanup_storage', { keepLatest });
+
 const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = '';
   const chunk = 0x8000;

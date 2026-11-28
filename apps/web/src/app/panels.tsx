@@ -1,4 +1,9 @@
-import type { BoardVersionInfo, RecentMapInfo } from '@drawnix/drawnix';
+import type {
+  BoardVersionInfo,
+  RecentMapInfo,
+  StorageStats,
+  StorageCleanupInfo,
+} from '@drawnix/drawnix';
 import { uiCopy } from './i18n';
 
 const formatTime = (ms: number, language: string) => {
@@ -23,8 +28,12 @@ const formatTime = (ms: number, language: string) => {
   });
 };
 
-const formatSize = (bytes: number) =>
-  bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+export const formatSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+};
 
 export type VersionPreview = { nodes: number; texts: string[] };
 
@@ -166,9 +175,15 @@ export const HomePanel = ({
   loading,
   embedded,
   openFileEnabled,
+  storageStats,
+  keepLatest,
+  cleanupPreviewLoading,
+  cleanupResult,
   onNew,
   onOpenFile,
   onOpenMap,
+  onKeepLatestChange,
+  onPreviewCleanup,
   onClose,
 }: {
   language: string;
@@ -176,9 +191,15 @@ export const HomePanel = ({
   loading: boolean;
   embedded: boolean;
   openFileEnabled: boolean;
+  storageStats: StorageStats | null;
+  keepLatest: number;
+  cleanupPreviewLoading: boolean;
+  cleanupResult: StorageCleanupInfo | null;
   onNew: () => void;
   onOpenFile: () => void;
   onOpenMap: (folderPath: string) => void;
+  onKeepLatestChange: (value: number) => void;
+  onPreviewCleanup: () => void;
   onClose: () => void;
 }) => {
   const t = uiCopy(language);
@@ -227,6 +248,45 @@ export const HomePanel = ({
             </button>
           ))}
       </div>
+      {openFileEnabled && (
+        <div className="home-panel__storage">
+          <h2 className="home-panel__recent-title">{t.storage}</h2>
+          <p className="home-panel__empty">
+            {storageStats
+              ? t.storageUsage(
+                  storageStats.map_count,
+                  storageStats.version_count,
+                  formatSize(storageStats.total_bytes)
+                )
+              : '…'}
+          </p>
+          <div className="home-panel__storage-actions">
+            <label className="home-panel__keep">
+              {t.keepLatest}
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={keepLatest}
+                onChange={(event) => onKeepLatestChange(Number(event.target.value))}
+              />
+            </label>
+            <button
+              type="button"
+              className="home-panel__cleanup"
+              disabled={cleanupPreviewLoading}
+              onClick={onPreviewCleanup}
+            >
+              {cleanupPreviewLoading ? '…' : t.cleanupOldVersions}
+            </button>
+          </div>
+          {cleanupResult && (
+            <p className="home-panel__empty">
+              {t.cleanupResult(cleanupResult.version_count, formatSize(cleanupResult.freed_bytes))}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

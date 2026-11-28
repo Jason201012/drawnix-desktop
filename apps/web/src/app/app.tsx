@@ -17,6 +17,9 @@ import {
   listBoardVersions,
   deleteBoardVersion,
   listRecentMaps,
+  getStorageStats,
+  previewStorageCleanup,
+  cleanupStorage,
   pickOpen,
   getRecentBoards,
   setRecentBoards,
@@ -24,6 +27,8 @@ import {
   EVENT,
   type BoardVersionInfo,
   type RecentMapInfo,
+  type StorageStats,
+  type StorageCleanupInfo,
 } from '@drawnix/drawnix';
 import { PlaitBoard, PlaitElement, PlaitTheme, Viewport } from '@plait/core';
 import type { BoardChangeData } from '@plait-board/react-board';
@@ -32,7 +37,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import localforage from 'localforage';
 import { TabStrip, DiscardDialog, type TabView } from './tab-strip';
-import { HistoryDrawer, ConfirmDialog, HomePanel, type VersionPreview } from './panels';
+import { HistoryDrawer, ConfirmDialog, HomePanel, formatSize, type VersionPreview } from './panels';
 import { uiCopy } from './i18n';
 
 type AppValue = {
@@ -65,6 +70,11 @@ type VersionActionRequest = {
   tabId: string;
   versionDir: string;
   version: number;
+};
+
+type CleanupRequest = {
+  keepLatest: number;
+  info: StorageCleanupInfo;
 };
 
 const MAIN_BOARD_CONTENT_KEY = 'main_board_content';
@@ -129,12 +139,20 @@ export function App() {
   const [homeLoading, setHomeLoading] = useState(false);
   const [versionRequest, setVersionRequest] = useState<VersionActionRequest | null>(null);
   const [versionActionPending, setVersionActionPending] = useState(false);
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const [keepLatest, setKeepLatest] = useState(20);
+  const [cleanupPreview, setCleanupPreview] = useState<CleanupRequest | null>(null);
+  const [cleanupPreviewLoading, setCleanupPreviewLoading] = useState(false);
+  const [cleanupPending, setCleanupPending] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<StorageCleanupInfo | null>(null);
 
   const tabsRef = useRef<BoardTab[]>([]);
   const activeRef = useRef<string | null>(null);
   const closeRequestRef = useRef<string | null>(null);
   const versionRequestRef = useRef<VersionActionRequest | null>(null);
   const versionActionPendingRef = useRef(false);
+  const cleanupPreviewRef = useRef<CleanupRequest | null>(null);
+  const cleanupPendingRef = useRef(false);
   const historyRequestRef = useRef(0);
   const openingMapsRef = useRef(new Set<string>());
   const preferenceRef = useRef(preference);
@@ -429,16 +447,73 @@ export function App() {
   const refreshHome = async () => {
     if (!isDesktop) {
       setRecentMaps([]);
+      setStorageStats(null);
       return;
     }
     setHomeLoading(true);
     try {
-      setRecentMaps(await listRecentMaps(12));
+      const [maps, stats] = await Promise.all([listRecentMaps(12), getStorageStats()]);
+      setRecentMaps(maps);
+      setStorageStats(stats);
     } catch (error) {
       console.error(error);
       setStorageError(String(error));
     } finally {
       setHomeLoading(false);
+    }
+  };
+
+  const clearCleanupPreview = () => {
+    cleanupPreviewRef.current = null;
+    setCleanupPreview(null);
+  };
+
+  const previewCleanup = async () => {
+    const normalized = Math.floor(Number(keepLatest));
+    if (!Number.isFinite(normalized) || normalized < 1 || normalized > 999) {
+      setStorageError(uiCopy(preferenceRef.current.language).keepLatestError);
+      return;
+    }
+    setCleanupPreviewLoading(true);
+    try {
+      const info = await previewStorageCleanup(normalized);
+      setCleanupResult(null);
+      if (info.version_count === 0) {
+        setCleanupResult(info);
+        return;
+      }
+      const request = { keepLatest: normalized, info };
+      cleanupPreviewRef.current = request;
+      setCleanupPreview(request);
+    } catch (error) {
+      console.error(error);
+      setStorageError(String(error));
+    } finally {
+      setCleanupPreviewLoading(false);
+    }
+  };
+
+  const confirmCleanup = async () => {
+    const request = cleanupPreviewRef.current;
+    if (!request || cleanupPendingRef.current) {
+      return;
+    }
+    cleanupPendingRef.current = true;
+    setCleanupPending(true);
+    try {
+      const result = await cleanupStorage(request.keepLatest);
+      clearCleanupPreview();
+      setCleanupResult(result);
+      await refreshHome();
+      if (activeTab()?.versionDir) {
+        await refreshHistory();
+      }
+    } catch (error) {
+      console.error(error);
+      setStorageError(String(error));
+    } finally {
+      cleanupPendingRef.current = false;
+      setCleanupPending(false);
     }
   };
 
@@ -741,6 +816,13 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (cleanupPreviewRef.current) {
+        if (event.key === 'Escape' && !cleanupPendingRef.current) {
+          event.preventDefault();
+          clearCleanupPreview();
+        }
+        return;
+      }
       if (versionRequestRef.current) {
         if (event.key === 'Escape' && !versionActionPendingRef.current) {
           event.preventDefault();
@@ -1017,6 +1099,12 @@ export function App() {
             maps={recentMaps}
             loading={homeLoading}
             openFileEnabled={isDesktop}
+            storageStats={storageStats}
+            keepLatest={keepLatest}
+            cleanupPreviewLoading={cleanupPreviewLoading}
+            cleanupResult={cleanupResult}
+            onKeepLatestChange={setKeepLatest}
+            onPreviewCleanup={() => void previewCleanup()}
             embedded
             onNew={newMindTab}
             onOpenFile={openDrawnixFile}
@@ -1030,6 +1118,12 @@ export function App() {
             maps={recentMaps}
             loading={homeLoading}
             openFileEnabled={isDesktop}
+            storageStats={storageStats}
+            keepLatest={keepLatest}
+            cleanupPreviewLoading={cleanupPreviewLoading}
+            cleanupResult={cleanupResult}
+            onKeepLatestChange={setKeepLatest}
+            onPreviewCleanup={() => void previewCleanup()}
             embedded={false}
             onNew={newMindTab}
             onOpenFile={openDrawnixFile}
@@ -1076,6 +1170,30 @@ export function App() {
             }
           }}
           onConfirm={confirmVersionAction}
+        />
+      )}
+      {cleanupPreview && (
+        <ConfirmDialog
+          title={uiCopy(preference.language).cleanupTitle(
+            cleanupPreview.info.version_count,
+            formatSize(cleanupPreview.info.freed_bytes)
+          )}
+          body={uiCopy(preference.language).cleanupBody(
+            cleanupPreview.info.map_count,
+            cleanupPreview.info.version_count,
+            formatSize(cleanupPreview.info.freed_bytes),
+            cleanupPreview.keepLatest
+          )}
+          cancel={uiCopy(preference.language).cancel}
+          confirm={uiCopy(preference.language).cleanupConfirm}
+          danger
+          busy={cleanupPending}
+          onCancel={() => {
+            if (!cleanupPendingRef.current) {
+              clearCleanupPreview();
+            }
+          }}
+          onConfirm={() => void confirmCleanup()}
         />
       )}
       {closeRequest && (

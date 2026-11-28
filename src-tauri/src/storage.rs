@@ -328,16 +328,18 @@ pub struct RecentMapInfo {
     modified_ms: u64,
 }
 
-#[tauri::command]
-pub fn list_recent_maps(app: AppHandle, limit: usize) -> Result<Vec<RecentMapInfo>, String> {
+fn drawnix_root(app: &AppHandle) -> Result<PathBuf, String> {
     let documents = app.path().document_dir().map_err(|error| error.to_string())?;
-    let root = documents.join("Drawnix");
-    let mut maps = Vec::new();
-    let read_dir = match fs::read_dir(&root) {
+    Ok(documents.join("Drawnix"))
+}
+
+fn map_folders(root: &Path) -> Result<Vec<(String, PathBuf)>, String> {
+    let read_dir = match fs::read_dir(root) {
         Ok(read_dir) => read_dir,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error.to_string()),
     };
+    let mut folders = Vec::new();
     for entry in read_dir {
         let entry = entry.map_err(|error| error.to_string())?;
         let path = entry.path();
@@ -345,9 +347,94 @@ pub fn list_recent_maps(app: AppHandle, limit: usize) -> Result<Vec<RecentMapInf
             continue;
         }
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !is_date_folder(&name) {
+        if is_date_folder(&name) {
+            folders.push((name, path));
+        }
+    }
+    Ok(folders)
+}
+
+#[derive(Serialize, Default)]
+pub struct StorageStats {
+    map_count: usize,
+    version_count: usize,
+    total_bytes: u64,
+}
+
+#[derive(Serialize, Default)]
+pub struct StorageCleanupInfo {
+    map_count: usize,
+    version_count: usize,
+    freed_bytes: u64,
+}
+
+#[tauri::command]
+pub fn get_storage_stats(app: AppHandle) -> Result<StorageStats, String> {
+    let mut stats = StorageStats::default();
+    for (_, folder) in map_folders(&drawnix_root(&app)?)? {
+        let entries = version_entries(&folder)?;
+        if entries.is_empty() {
             continue;
         }
+        stats.map_count += 1;
+        for (_, path) in entries {
+            let metadata = fs::metadata(&path).map_err(|error| error.to_string())?;
+            stats.version_count += 1;
+            stats.total_bytes += metadata.len();
+        }
+    }
+    Ok(stats)
+}
+
+fn cleanup_plan(root: &Path, keep_latest: usize) -> Result<(Vec<PathBuf>, StorageCleanupInfo), String> {
+    if keep_latest == 0 {
+        return Err("至少需要保留 1 个版本".to_string());
+    }
+    let mut files = Vec::new();
+    let mut info = StorageCleanupInfo::default();
+    for (_, folder) in map_folders(root)? {
+        let entries = version_entries(&folder)?;
+        let mut affected = false;
+        for (_, path) in entries.into_iter().skip(keep_latest) {
+            let metadata = fs::metadata(&path).map_err(|error| error.to_string())?;
+            info.version_count += 1;
+            info.freed_bytes += metadata.len();
+            files.push(path);
+            affected = true;
+        }
+        if affected {
+            info.map_count += 1;
+        }
+    }
+    Ok((files, info))
+}
+
+#[tauri::command]
+pub fn preview_storage_cleanup(
+    app: AppHandle,
+    keep_latest: usize,
+) -> Result<StorageCleanupInfo, String> {
+    let (_, info) = cleanup_plan(&drawnix_root(&app)?, keep_latest)?;
+    Ok(info)
+}
+
+fn apply_cleanup(root: &Path, keep_latest: usize) -> Result<StorageCleanupInfo, String> {
+    let (files, info) = cleanup_plan(root, keep_latest)?;
+    for path in files {
+        fs::remove_file(path).map_err(|error| error.to_string())?;
+    }
+    Ok(info)
+}
+
+#[tauri::command]
+pub fn cleanup_storage(app: AppHandle, keep_latest: usize) -> Result<StorageCleanupInfo, String> {
+    apply_cleanup(&drawnix_root(&app)?, keep_latest)
+}
+
+#[tauri::command]
+pub fn list_recent_maps(app: AppHandle, limit: usize) -> Result<Vec<RecentMapInfo>, String> {
+    let mut maps = Vec::new();
+    for (name, path) in map_folders(&drawnix_root(&app)?)? {
         let entries = version_entries(&path)?;
         let Some((latest_version, latest_path)) = entries.first() else {
             continue;
@@ -408,5 +495,63 @@ mod tests {
         );
 
         fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
+    fn cleanup_plan_keeps_latest_versions() {
+        let root = test_folder("cleanup-plan");
+        let first = root.join("20261128");
+        let second = root.join("20261128-2");
+        fs::create_dir(&first).unwrap();
+        fs::create_dir(&second).unwrap();
+        fs::write(first.join("1"), b"1").unwrap();
+        fs::write(first.join("2"), b"22").unwrap();
+        fs::write(first.join("3"), b"333").unwrap();
+        fs::write(first.join("4"), b"4444").unwrap();
+        fs::write(second.join("1"), b"11111").unwrap();
+        fs::write(second.join("2"), b"22222").unwrap();
+
+        let (files, info) = cleanup_plan(&root, 2).unwrap();
+
+        assert_eq!(info.map_count, 1);
+        assert_eq!(info.version_count, 2);
+        assert_eq!(info.freed_bytes, 3);
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().all(|path| path.parent() == Some(first.as_path())));
+        assert!(first.join("3").is_file());
+        assert!(first.join("4").is_file());
+        assert!(second.join("1").is_file());
+        assert!(second.join("2").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn apply_cleanup_removes_only_old_versions() {
+        let root = test_folder("cleanup-apply");
+        let folder = root.join("20990101");
+        fs::create_dir(&folder).unwrap();
+        for version in 1..=4 {
+            fs::write(folder.join(version.to_string()), b"x").unwrap();
+        }
+
+        let info = apply_cleanup(&root, 2).unwrap();
+
+        assert_eq!(info.map_count, 1);
+        assert_eq!(info.version_count, 2);
+        assert_eq!(info.freed_bytes, 2);
+        assert!(!folder.join("1").exists());
+        assert!(!folder.join("2").exists());
+        assert!(folder.join("3").is_file());
+        assert!(folder.join("4").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn cleanup_plan_requires_one_kept_version() {
+        let root = test_folder("cleanup-plan-zero");
+        assert!(cleanup_plan(&root, 0).is_err());
+        fs::remove_dir_all(root).unwrap();
     }
 }

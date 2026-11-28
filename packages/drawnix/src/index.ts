@@ -21,6 +21,9 @@ export {
   listBoardVersions,
   deleteBoardVersion,
   listRecentMaps,
+  getStorageStats,
+  previewStorageCleanup,
+  cleanupStorage,
   pickOpen,
   getRecentBoards,
   setRecentBoards,
@@ -30,5 +33,7 @@ export type {
   DesktopFileHandle,
   BoardVersionInfo,
   RecentMapInfo,
+  StorageStats,
+  StorageCleanupInfo,
   DialogFilter,
 } from './data/desktop';

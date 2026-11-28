@@ -33,6 +33,9 @@ fn main() {
             storage::list_board_versions,
             storage::delete_board_version,
             storage::list_recent_maps,
+            storage::get_storage_stats,
+            storage::preview_storage_cleanup,
+            storage::cleanup_storage,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Drawnix");
