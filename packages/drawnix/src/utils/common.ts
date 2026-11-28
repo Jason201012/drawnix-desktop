@@ -1,6 +1,7 @@
-import { IS_APPLE, IS_MAC, PlaitBoard, toImage, ToImageOptions } from '@plait/core';
+import { IS_APPLE, IS_MAC, PlaitBoard, toSvgData, ToImageOptions } from '@plait/core';
 import type { ResolutionType } from './utility-types';
 import { isDesktop, pickSave, writeDesktopBlob } from '../data/desktop';
+import { toPortableSvg } from './svg-text';
 
 export const isPromiseLike = (value: any): value is Promise<ResolutionType<typeof value>> => {
   return (
@@ -43,14 +44,56 @@ export const base64ToBlob = (base64: string) => {
   });
 };
 
-export const boardToImage = (board: PlaitBoard, options: ToImageOptions = {}) => {
-  return toImage(board, {
+const loadSvgImage = (source: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Unable to load exported SVG.'));
+    image.src = source;
+  });
+
+export const boardToImage = async (board: PlaitBoard, options: ToImageOptions = {}) => {
+  const {
+    fillStyle = 'transparent',
+    ratio = 4,
+    ...svgOptions
+  } = {
     fillStyle: 'transparent',
     inlineStyleClassNames: '.extend,.emojis,.text',
     padding: 20,
     ratio: 4,
     ...options,
-  });
+  };
+  try {
+    const svgData = await toSvgData(board, { ...svgOptions, fillStyle: '' });
+    const portableSvgData = toPortableSvg(svgData);
+    const parsed = new DOMParser().parseFromString(portableSvgData, 'image/svg+xml');
+    const root = parsed.documentElement;
+    const width = Number.parseFloat(root.getAttribute('width') || '0');
+    const height = Number.parseFloat(root.getAttribute('height') || '0');
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return undefined;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return undefined;
+    }
+    if (fillStyle !== 'transparent') {
+      context.fillStyle = fillStyle;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const image = await loadSvgImage(
+      `data:image/svg+xml;charset=utf-8,${encodeURIComponent(portableSvgData)}`
+    );
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/png');
+  } catch (error) {
+    console.error('Error converting SVG to image:', error);
+    return undefined;
+  }
 };
 
 export function download(blob: Blob | MediaSource, filename: string) {
