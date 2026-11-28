@@ -5,6 +5,7 @@ import type {
   StorageCleanupInfo,
 } from '@drawnix/drawnix';
 import { uiCopy } from './i18n';
+import type { VersionDiff } from './version-diff';
 
 const formatTime = (ms: number, language: string) => {
   if (!ms) {
@@ -37,24 +38,67 @@ export const formatSize = (bytes: number) => {
 
 export type VersionPreview = { nodes: number; texts: string[] };
 
+const DiffList = ({ diff, t }: { diff: VersionDiff; t: ReturnType<typeof uiCopy> }) => {
+  const groups = [
+    { key: 'added', title: t.added(diff.added.length), nodes: diff.added },
+    { key: 'removed', title: t.removed(diff.removed.length), nodes: diff.removed },
+    { key: 'changed', title: t.changed(diff.changed.length), nodes: diff.changed },
+  ];
+  if (groups.every((group) => group.nodes.length === 0)) {
+    return <p className="history-drawer__empty">{t.noChanges}</p>;
+  }
+  return (
+    <div className="history-drawer__diff">
+      {groups.map((group) => (
+        <div
+          key={group.key}
+          className={`history-drawer__diff-group history-drawer__diff-group--${group.key}`}
+        >
+          <h3>{group.title}</h3>
+          {group.nodes.length === 0 ? (
+            <p className="history-drawer__empty">—</p>
+          ) : (
+            <ul>
+              {group.nodes.slice(0, 20).map((node) => (
+                <li key={node.id}>{node.text || node.id}</li>
+              ))}
+              {group.nodes.length > 20 && <li>{t.more(group.nodes.length - 20)}</li>}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const HistoryDrawer = ({
   language,
   versions,
   loading,
   previews,
+  compareSelection,
+  diff,
+  diffLoading,
   onClose,
   onPreview,
   onRestore,
   onDelete,
+  onToggleCompare,
+  onClearCompare,
 }: {
   language: string;
   versions: BoardVersionInfo[];
   loading: boolean;
   previews: Record<number, VersionPreview>;
+  compareSelection: number[];
+  diff: VersionDiff | null;
+  diffLoading: boolean;
   onClose: () => void;
   onPreview: (version: number) => void;
   onRestore: (version: number) => void;
   onDelete: (version: number) => void;
+  onToggleCompare: (version: number) => void;
+  onClearCompare: () => void;
 }) => {
   const t = uiCopy(language);
   return (
@@ -70,6 +114,22 @@ export const HistoryDrawer = ({
           ×
         </button>
       </div>
+      {compareSelection.length > 0 && (
+        <div className="history-drawer__compare">
+          <div className="history-drawer__compare-head">
+            <strong>{t.compareVersions}</strong>
+            <span>{[...compareSelection].sort((a, b) => a - b).join(' ↔ ')}</span>
+            <button type="button" onClick={onClearCompare}>
+              {t.clearCompare}
+            </button>
+          </div>
+          {diffLoading && <p className="history-drawer__empty">…</p>}
+          {!diffLoading && compareSelection.length === 2 && diff && <DiffList diff={diff} t={t} />}
+          {!diffLoading && compareSelection.length === 1 && (
+            <p className="history-drawer__empty">{t.compareHint}</p>
+          )}
+        </div>
+      )}
       <div className="history-drawer__list">
         {loading && <p className="history-drawer__empty">…</p>}
         {!loading && versions.length === 0 && (
@@ -93,6 +153,14 @@ export const HistoryDrawer = ({
                 </button>
                 <button type="button" onClick={() => onRestore(item.version)}>
                   {t.restore}
+                </button>
+                <button
+                  type="button"
+                  className={compareSelection.includes(item.version) ? 'is-selected' : undefined}
+                  aria-pressed={compareSelection.includes(item.version)}
+                  onClick={() => onToggleCompare(item.version)}
+                >
+                  {t.compare}
                 </button>
                 <button
                   type="button"

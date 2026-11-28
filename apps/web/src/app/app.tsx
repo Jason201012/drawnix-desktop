@@ -38,6 +38,7 @@ import { listen } from '@tauri-apps/api/event';
 import localforage from 'localforage';
 import { TabStrip, DiscardDialog, type TabView } from './tab-strip';
 import { HistoryDrawer, ConfirmDialog, HomePanel, formatSize, type VersionPreview } from './panels';
+import { compareBoardVersions, type VersionDiff } from './version-diff';
 import { uiCopy } from './i18n';
 
 type AppValue = {
@@ -134,6 +135,9 @@ export function App() {
   const [historyVersions, setHistoryVersions] = useState<BoardVersionInfo[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [previews, setPreviews] = useState<Record<number, VersionPreview>>({});
+  const [compareSelection, setCompareSelection] = useState<number[]>([]);
+  const [versionDiff, setVersionDiff] = useState<VersionDiff | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
   const [homeOpen, setHomeOpen] = useState(false);
   const [recentMaps, setRecentMaps] = useState<RecentMapInfo[]>([]);
   const [homeLoading, setHomeLoading] = useState(false);
@@ -154,6 +158,7 @@ export function App() {
   const cleanupPreviewRef = useRef<CleanupRequest | null>(null);
   const cleanupPendingRef = useRef(false);
   const historyRequestRef = useRef(0);
+  const diffRequestRef = useRef(0);
   const openingMapsRef = useRef(new Set<string>());
   const preferenceRef = useRef(preference);
   const boardRefs = useRef(new Map<string, PlaitBoard>());
@@ -421,6 +426,10 @@ export function App() {
     const tab = activeTab();
     setHistoryVersions([]);
     setPreviews({});
+    diffRequestRef.current += 1;
+    setCompareSelection([]);
+    setVersionDiff(null);
+    setDiffLoading(false);
     if (!tab?.versionDir) {
       setHistoryLoading(false);
       return;
@@ -442,6 +451,15 @@ export function App() {
         setHistoryLoading(false);
       }
     }
+  };
+
+  const toggleCompareVersion = (version: number) => {
+    setCompareSelection((current) => {
+      if (current.includes(version)) {
+        return current.filter((item) => item !== version);
+      }
+      return [...current, version].slice(-2);
+    });
   };
 
   const refreshHome = async () => {
@@ -809,6 +827,50 @@ export function App() {
   }, [activeId, historyOpen]);
 
   useEffect(() => {
+    const requestId = ++diffRequestRef.current;
+    if (!historyOpen || compareSelection.length !== 2) {
+      setVersionDiff(null);
+      setDiffLoading(false);
+      return;
+    }
+    const tab = activeTab();
+    if (!tab?.versionDir) {
+      setVersionDiff(null);
+      setDiffLoading(false);
+      return;
+    }
+    const [olderVersion, newerVersion] = [...compareSelection].sort((a, b) => a - b);
+    setDiffLoading(true);
+    setVersionDiff(null);
+    Promise.all([
+      readBoardVersion(`${tab.versionDir}/${olderVersion}`),
+      readBoardVersion(`${tab.versionDir}/${newerVersion}`),
+    ])
+      .then(([olderRaw, newerRaw]) => {
+        if (requestId !== diffRequestRef.current || activeRef.current !== tab.id) {
+          return;
+        }
+        const older = parseBoard(olderRaw);
+        const newer = parseBoard(newerRaw);
+        if (!older || !newer) {
+          return;
+        }
+        setVersionDiff(compareBoardVersions(older.children, newer.children));
+      })
+      .catch((error) => {
+        if (requestId === diffRequestRef.current) {
+          console.error(error);
+          setStorageError(String(error));
+        }
+      })
+      .finally(() => {
+        if (requestId === diffRequestRef.current) {
+          setDiffLoading(false);
+        }
+      });
+  }, [activeId, compareSelection, historyOpen]);
+
+  useEffect(() => {
     if (tabs.length === 0) {
       void refreshHome();
     }
@@ -1137,8 +1199,13 @@ export function App() {
             versions={historyVersions}
             loading={historyLoading}
             previews={previews}
+            compareSelection={compareSelection}
+            diff={versionDiff}
+            diffLoading={diffLoading}
             onClose={() => setHistoryOpen(false)}
             onPreview={(version) => void previewVersion(version)}
+            onToggleCompare={toggleCompareVersion}
+            onClearCompare={() => setCompareSelection([])}
             onRestore={(version) => requestVersionAction('restore', version)}
             onDelete={(version) => requestVersionAction('delete', version)}
           />
