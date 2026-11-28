@@ -104,16 +104,21 @@ const enTranslations: Translations = {
   'dialog.mermaid.placeholder': 'Write your Mermaid chart definition here…',
   'dialog.mermaid.preview': 'Preview',
   'dialog.mermaid.insert': 'Insert',
-  'dialog.markdown.description': 'Supports automatic conversion of Markdown syntax to mind map.',
+  'dialog.markdown.description':
+    'Paste Markdown, import a Markdown or XMind file, or start from a built-in template.',
   'dialog.markdown.syntax': 'Markdown Syntax',
   'dialog.markdown.placeholder': 'Write your Markdown text definition here...',
   'dialog.markdown.preview': 'Preview',
   'dialog.markdown.insert': 'Insert',
+  'dialog.markdown.importFile': 'Import Markdown / XMind',
+  'dialog.markdown.importing': 'Importing…',
+  'dialog.markdown.importFailed': 'Import failed. Check the file format.',
+  'dialog.markdown.templates': 'Templates',
   'dialog.error.loadMermaid': 'Failed to load Mermaid library',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid to Drawnix',
-  'extraTools.markdownToDrawnix': 'Markdown to Drawnix',
+  'extraTools.markdownToDrawnix': 'Import Markdown / XMind',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'Clear Board',
@@ -175,6 +180,30 @@ const enTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'Central Topic',
   'mind.abstractNodeText': 'Summary',
+
+  'markdown.templateProject': `# Project Plan
+## Goals
+## Milestones
+## Tasks
+### To do
+### In progress
+### Done
+## Risks`,
+
+  'markdown.templateWeekly': `# Weekly Plan
+## Weekly Goals
+## Monday
+## Tuesday
+## Wednesday
+## Thursday
+## Friday
+## Weekend Review`,
+
+  'markdown.templateSwot': `# SWOT Analysis
+## Strengths
+## Weaknesses
+## Opportunities
+## Threats`,
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

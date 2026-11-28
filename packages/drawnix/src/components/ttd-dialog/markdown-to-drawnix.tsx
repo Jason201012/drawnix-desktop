@@ -1,4 +1,4 @@
-import { useState, useEffect, useDeferredValue } from 'react';
+import { useState, useEffect, useDeferredValue, useRef } from 'react';
 import './mermaid-to-drawnix.scss';
 import './ttd-dialog.scss';
 import { TTDDialogPanels } from './ttd-dialog-panels';
@@ -16,6 +16,7 @@ import {
   WritableClipboardOperationType,
 } from '@plait/core';
 import { MindElement } from '@plait/mind';
+import { readImportFile } from '../../data/import';
 
 export interface MarkdownToDrawnixLibProps {
   loaded: boolean;
@@ -55,7 +56,42 @@ const MarkdownToDrawnix = () => {
   const [value, setValue] = useState<PlaitElement[]>(() => []);
   const deferredText = useDeferredValue(text.trim());
   const [error, setError] = useState<Error | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const board = useBoard();
+  const templates = [
+    {
+      key: 'project',
+      label: t('markdown.templateProject').split('\n')[0].replace(/^#\s*/, ''),
+      markdown: t('markdown.templateProject'),
+    },
+    {
+      key: 'weekly',
+      label: t('markdown.templateWeekly').split('\n')[0].replace(/^#\s*/, ''),
+      markdown: t('markdown.templateWeekly'),
+    },
+    {
+      key: 'swot',
+      label: t('markdown.templateSwot').split('\n')[0].replace(/^#\s*/, ''),
+      markdown: t('markdown.templateSwot'),
+    },
+  ];
+
+  const importFile = async (file: File) => {
+    setImporting(true);
+    setError(null);
+    try {
+      setText(await readImportFile(file));
+    } catch (error) {
+      console.error(error);
+      setError(new Error(t('dialog.markdown.importFailed')));
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   // Update markdown example when language changes
   useEffect(() => {
@@ -111,6 +147,38 @@ const MarkdownToDrawnix = () => {
   return (
     <>
       <div className="ttd-dialog-desc">{t('dialog.markdown.description')}</div>
+      <div className="ttd-dialog-importbar">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.markdown,.txt,.xmind"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) {
+              void importFile(file);
+            }
+          }}
+        />
+        <button type="button" disabled={importing} onClick={() => fileInputRef.current?.click()}>
+          {importing ? t('dialog.markdown.importing') : t('dialog.markdown.importFile')}
+        </button>
+        <div className="ttd-dialog-templates">
+          <span>{t('dialog.markdown.templates')}</span>
+          {templates.map((template) => (
+            <button
+              key={template.key}
+              type="button"
+              onClick={() => {
+                setText(template.markdown);
+                setError(null);
+              }}
+            >
+              {template.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <TTDDialogPanels>
         <TTDDialogPanel label={t('dialog.markdown.syntax')}>
           <TTDDialogInput

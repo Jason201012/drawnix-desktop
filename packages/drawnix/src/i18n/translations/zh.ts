@@ -106,16 +106,21 @@ const zhTranslations: Translations = {
   'dialog.mermaid.placeholder': '在此处编写 Mermaid 图表定义…',
   'dialog.mermaid.preview': '预览',
   'dialog.mermaid.insert': '插入',
-  'dialog.markdown.description': '支持 Markdown 语法自动转换为思维导图。',
+  'dialog.markdown.description':
+    '支持粘贴 Markdown、导入 Markdown 文件或 XMind，并可选用内置模板。',
   'dialog.markdown.syntax': 'Markdown 语法',
   'dialog.markdown.placeholder': '在此处编写 Markdown 文本定义…',
   'dialog.markdown.preview': '预览',
   'dialog.markdown.insert': '插入',
+  'dialog.markdown.importFile': '导入 Markdown / XMind',
+  'dialog.markdown.importing': '正在导入…',
+  'dialog.markdown.importFailed': '导入失败，请检查文件格式',
+  'dialog.markdown.templates': '模板',
   'dialog.error.loadMermaid': '加载 Mermaid 库失败',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid 到 Drawnix',
-  'extraTools.markdownToDrawnix': 'Markdown 到 Drawnix',
+  'extraTools.markdownToDrawnix': 'Markdown / XMind 导入',
 
   // Clean confirm dialog
   'cleanConfirm.title': '清除画布',
@@ -177,6 +182,30 @@ const zhTranslations: Translations = {
   ### Hello world 👋 🌍 ✨ 💻
 
   #### 哇 是个程序员 🤯 ⌨️ 💡 👩 💻`,
+
+  'markdown.templateProject': `# 项目计划
+## 目标
+## 里程碑
+## 任务
+### 待办
+### 进行中
+### 已完成
+## 风险`,
+
+  'markdown.templateWeekly': `# 本周计划
+## 本周目标
+## 周一
+## 周二
+## 周三
+## 周四
+## 周五
+## 周末复盘`,
+
+  'markdown.templateSwot': `# SWOT 分析
+## 优势
+## 劣势
+## 机会
+## 威胁`,
 
   'tutorial.title': 'Drawnix',
   'tutorial.description': 'All-in-one 白板，包含思维导图、流程图、自由画笔等',

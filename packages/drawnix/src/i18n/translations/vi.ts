@@ -106,16 +106,21 @@ const viTranslations: Translations = {
   'dialog.mermaid.placeholder': 'Viết định nghĩa biểu đồ Mermaid của bạn ở đây...',
   'dialog.mermaid.preview': 'Xem trước',
   'dialog.mermaid.insert': 'Chèn',
-  'dialog.markdown.description': 'Hỗ trợ tự động chuyển đổi cú pháp Markdown sang sơ đồ tư duy.',
+  'dialog.markdown.description':
+    'Dán Markdown, nhập tệp Markdown hoặc XMind, hoặc bắt đầu từ mẫu có sẵn.',
   'dialog.markdown.syntax': 'Cú pháp Markdown',
   'dialog.markdown.placeholder': 'Viết nội dung Markdown của bạn ở đây...',
   'dialog.markdown.preview': 'Xem trước',
   'dialog.markdown.insert': 'Chèn',
+  'dialog.markdown.importFile': 'Nhập Markdown / XMind',
+  'dialog.markdown.importing': 'Đang nhập…',
+  'dialog.markdown.importFailed': 'Nhập thất bại. Hãy kiểm tra định dạng tệp.',
+  'dialog.markdown.templates': 'Mẫu',
   'dialog.error.loadMermaid': 'Không thể tải thư viện Mermaid',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid sang Drawnix',
-  'extraTools.markdownToDrawnix': 'Markdown sang Drawnix',
+  'extraTools.markdownToDrawnix': 'Nhập Markdown / XMind',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'Xóa bảng',
@@ -177,6 +182,30 @@ const viTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'Chủ đề trung tâm',
   'mind.abstractNodeText': 'Tóm tắt',
+
+  'markdown.templateProject': `# Kế hoạch dự án
+## Mục tiêu
+## Mốc tiến độ
+## Nhiệm vụ
+### Cần làm
+### Đang làm
+### Hoàn thành
+## Rủi ro`,
+
+  'markdown.templateWeekly': `# Kế hoạch tuần
+## Mục tiêu tuần
+## Thứ hai
+## Thứ ba
+## Thứ tư
+## Thứ năm
+## Thứ sáu
+## Tổng kết cuối tuần`,
+
+  'markdown.templateSwot': `# Phân tích SWOT
+## Điểm mạnh
+## Điểm yếu
+## Cơ hội
+## Thách thức`,
 
   'tutorial.title': 'DPIT Draw MindMap',
   'tutorial.description':

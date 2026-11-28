@@ -107,16 +107,20 @@ const ruTranslations: Translations = {
   'dialog.mermaid.preview': 'Предпросмотр',
   'dialog.mermaid.insert': 'Вставить',
   'dialog.markdown.description':
-    'Поддерживается автоматическое преобразование синтаксиса Markdown в mind-карты.',
+    'Вставьте Markdown, импортируйте файл Markdown или XMind либо выберите встроенный шаблон.',
   'dialog.markdown.syntax': 'Синтаксис Markdown',
   'dialog.markdown.placeholder': 'Введите сюда описание вашего текста Markdown…',
   'dialog.markdown.preview': 'Предпросмотр',
   'dialog.markdown.insert': 'Вставить',
+  'dialog.markdown.importFile': 'Импорт Markdown / XMind',
+  'dialog.markdown.importing': 'Импорт…',
+  'dialog.markdown.importFailed': 'Ошибка импорта. Проверьте формат файла.',
+  'dialog.markdown.templates': 'Шаблоны',
   'dialog.error.loadMermaid': 'Не удалось загрузить библотеку Mermaid',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'Mermaid в Drawnix',
-  'extraTools.markdownToDrawnix': 'Markdown в Drawnix',
+  'extraTools.markdownToDrawnix': 'Импорт Markdown / XMind',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'Очистить доску',
@@ -178,6 +182,30 @@ const ruTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'Центральная тема',
   'mind.abstractNodeText': 'Резюме',
+
+  'markdown.templateProject': `# План проекта
+## Цели
+## Вехи
+## Задачи
+### К выполнению
+### В работе
+### Готово
+## Риски`,
+
+  'markdown.templateWeekly': `# План на неделю
+## Цели недели
+## Понедельник
+## Вторник
+## Среда
+## Четверг
+## Пятница
+## Итоги выходных`,
+
+  'markdown.templateSwot': `# SWOT-анализ
+## Сильные стороны
+## Слабые стороны
+## Возможности
+## Угрозы`,
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

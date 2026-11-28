@@ -105,16 +105,21 @@ const arTranslations: Translations = {
   'dialog.mermaid.placeholder': 'اكتب تعريف المخطط هنا...',
   'dialog.mermaid.preview': 'معاينة',
   'dialog.mermaid.insert': 'إدراج',
-  'dialog.markdown.description': 'يدعم التحويل التلقائي من Markdown إلى خريطة ذهنية.',
+  'dialog.markdown.description':
+    'الصق Markdown أو استورد ملف Markdown أو XMind أو ابدأ من قالب جاهز.',
   'dialog.markdown.syntax': 'صيغة Markdown',
   'dialog.markdown.placeholder': 'اكتب نص Markdown هنا...',
   'dialog.markdown.preview': 'معاينة',
   'dialog.markdown.insert': 'إدراج',
+  'dialog.markdown.importFile': 'استيراد Markdown / XMind',
+  'dialog.markdown.importing': 'جارٍ الاستيراد…',
+  'dialog.markdown.importFailed': 'فشل الاستيراد. تحقق من تنسيق الملف.',
+  'dialog.markdown.templates': 'القوالب',
   'dialog.error.loadMermaid': 'فشل في تحميل مكتبة Mermaid',
 
   // Extra tools menu items
   'extraTools.mermaidToDrawnix': 'من Mermaid إلى Drawnix',
-  'extraTools.markdownToDrawnix': 'من Markdown إلى Drawnix',
+  'extraTools.markdownToDrawnix': 'استيراد Markdown / XMind',
 
   // Clean confirm dialog
   'cleanConfirm.title': 'مسح اللوحة',
@@ -177,6 +182,30 @@ const arTranslations: Translations = {
   // Mind map elements text
   'mind.centralText': 'الموضوع المركزي',
   'mind.abstractNodeText': 'ملخص',
+
+  'markdown.templateProject': `# خطة المشروع
+## الأهداف
+## المعالم
+## المهام
+### قيد الانتظار
+### قيد التنفيذ
+### مكتمل
+## المخاطر`,
+
+  'markdown.templateWeekly': `# خطة الأسبوع
+## أهداف الأسبوع
+## الاثنين
+## الثلاثاء
+## الأربعاء
+## الخميس
+## الجمعة
+## مراجعة نهاية الأسبوع`,
+
+  'markdown.templateSwot': `# تحليل SWOT
+## نقاط القوة
+## نقاط الضعف
+## الفرص
+## التهديدات`,
 
   'tutorial.title': 'Drawnix',
   'tutorial.description':

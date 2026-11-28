@@ -115,6 +115,10 @@ export interface Translations {
   'dialog.markdown.placeholder': string;
   'dialog.markdown.preview': string;
   'dialog.markdown.insert': string;
+  'dialog.markdown.importFile': string;
+  'dialog.markdown.importing': string;
+  'dialog.markdown.importFailed': string;
+  'dialog.markdown.templates': string;
   'dialog.error.loadMermaid': string;
 
   // Extra tools menu items
@@ -155,6 +159,9 @@ export interface Translations {
 
   //markdown example
   'markdown.example': string;
+  'markdown.templateProject': string;
+  'markdown.templateWeekly': string;
+  'markdown.templateSwot': string;
 
   // Draw elements text
   'draw.lineText': string;

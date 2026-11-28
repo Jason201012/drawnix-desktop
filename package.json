@@ -30,6 +30,7 @@
     "ahooks": "^3.9.7",
     "browser-fs-access": "^0.38.0",
     "classnames": "^2.5.1",
+    "fflate": "^0.8.2",
     "is-hotkey": "^0.2.0",
     "laser-pen": "^1.0.1",
     "localforage": "^1.10.0",
