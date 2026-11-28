@@ -3,6 +3,7 @@ import { strFromU8, unzipSync } from 'fflate';
 type JsonTopic = {
   title?: string;
   children?: JsonTopic[] | { attached?: JsonTopic[] };
+  rootTopic?: JsonTopic;
 };
 
 const cleanTitle = (value: string | null | undefined, fallback: string) => {
@@ -66,7 +67,10 @@ const jsonTopicToMarkdown = (topic: JsonTopic, depth: number, lines: string[]) =
 
 export const xmindJsonToMarkdown = (source: string, fallbackTitle = 'XMind') => {
   const data = JSON.parse(source) as JsonTopic | JsonTopic[];
-  const roots = Array.isArray(data) ? data : [data];
+  const entries = Array.isArray(data) ? data : [data];
+  const roots = entries
+    .map((entry) => entry?.rootTopic ?? entry)
+    .filter((topic): topic is JsonTopic => !!topic && typeof topic === 'object');
   if (roots.length === 0) {
     throw new Error('XMind file contains no topics');
   }
@@ -93,7 +97,7 @@ export const readImportFile = async (file: File) => {
         (entry.name === 'content.xml' || entry.name === 'content.json') &&
         entry.originalSize <= 20 * 1024 * 1024,
     });
-    const content = files['content.xml'] ?? files['content.json'];
+    const content = files['content.json'] ?? files['content.xml'];
     if (!content) {
       throw new Error('XMind file is missing content.xml or content.json');
     }
@@ -101,9 +105,9 @@ export const readImportFile = async (file: File) => {
       throw new Error('XMind content is too large');
     }
     const source = strFromU8(content);
-    return files['content.xml']
-      ? xmindXmlToMarkdown(source, fallbackName(file.name))
-      : xmindJsonToMarkdown(source, fallbackName(file.name));
+    return files['content.json']
+      ? xmindJsonToMarkdown(source, fallbackName(file.name))
+      : xmindXmlToMarkdown(source, fallbackName(file.name));
   }
   if (name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.txt')) {
     if (file.size > 20 * 1024 * 1024) {
