@@ -30,6 +30,9 @@ fn main() {
             storage::create_mind_map,
             storage::save_board_version,
             storage::read_board_version,
+            storage::list_board_versions,
+            storage::delete_board_version,
+            storage::list_recent_maps,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Drawnix");

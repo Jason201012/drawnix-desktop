@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export const isDesktop =
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+export const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 export type DialogFilter = { name: string; extensions: string[] };
 
@@ -29,14 +28,12 @@ export const pickOpen = (filters: DialogFilter[], multiple: boolean) =>
 export const pickSave = (defaultName: string, filters: DialogFilter[]) =>
   invoke<string | null>('pick_save', { defaultName, filters });
 
-export const readFileBase64 = (path: string) =>
-  invoke<string>('read_file_base64', { path });
+export const readFileBase64 = (path: string) => invoke<string>('read_file_base64', { path });
 
 export const writeFileBase64 = (path: string, data: string) =>
   invoke<void>('write_file_base64', { path, data });
 
-export const readFileText = (path: string) =>
-  invoke<string>('read_file_text', { path });
+export const readFileText = (path: string) => invoke<string>('read_file_text', { path });
 
 export const writeFileText = (path: string, contents: string) =>
   invoke<void>('write_file_text', { path, contents });
@@ -61,6 +58,25 @@ export const saveBoardVersion = (folderPath: string, version: number, contents: 
   invoke<void>('save_board_version', { folderPath, version, contents });
 
 export const readBoardVersion = (path: string) => invoke<string>('read_board_version', { path });
+
+export type BoardVersionInfo = { version: number; size: number; modified_ms: number };
+
+export const listBoardVersions = (folderPath: string) =>
+  invoke<BoardVersionInfo[]>('list_board_versions', { folderPath });
+
+export const deleteBoardVersion = (folderPath: string, version: number) =>
+  invoke<void>('delete_board_version', { folderPath, version });
+
+export type RecentMapInfo = {
+  folder_path: string;
+  name: string;
+  latest_version: number;
+  version_count: number;
+  modified_ms: number;
+};
+
+export const listRecentMaps = (limit: number) =>
+  invoke<RecentMapInfo[]>('list_recent_maps', { limit });
 
 const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = '';

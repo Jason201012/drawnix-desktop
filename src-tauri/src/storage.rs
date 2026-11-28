@@ -226,10 +226,187 @@ pub fn save_board_version(
         return Err("版本序号必须从 2 开始".to_string());
     }
     let file = Path::new(&folder_path).join(version.to_string());
+    if file.exists() {
+        return Err("版本已存在，不能覆盖".to_string());
+    }
     gzip_write_atomic(&file, &contents)
 }
 
 #[tauri::command]
 pub fn read_board_version(path: String) -> Result<String, String> {
     gzip_read(Path::new(&path))
+}
+
+fn modified_ms(metadata: &fs::Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn version_entries(folder: &Path) -> Result<Vec<(u32, PathBuf)>, String> {
+    let read_dir = match fs::read_dir(folder) {
+        Ok(read_dir) => read_dir,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    let mut entries = Vec::new();
+    for entry in read_dir {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let file_type = entry.file_type().map_err(|error| error.to_string())?;
+        if !file_type.is_file() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if let Ok(version) = name.parse::<u32>() {
+            entries.push((version, entry.path()));
+        }
+    }
+    entries.sort_by(|a, b| b.0.cmp(&a.0));
+    Ok(entries)
+}
+
+#[derive(Serialize)]
+pub struct BoardVersionInfo {
+    version: u32,
+    size: u64,
+    modified_ms: u64,
+}
+
+#[tauri::command]
+pub fn list_board_versions(folder_path: String) -> Result<Vec<BoardVersionInfo>, String> {
+    let mut versions = Vec::new();
+    for (version, path) in version_entries(Path::new(&folder_path))? {
+        let metadata = fs::metadata(&path).map_err(|error| error.to_string())?;
+        versions.push(BoardVersionInfo {
+            version,
+            size: metadata.len(),
+            modified_ms: modified_ms(&metadata),
+        });
+    }
+    Ok(versions)
+}
+
+#[tauri::command]
+pub fn delete_board_version(folder_path: String, version: u32) -> Result<(), String> {
+    let folder = Path::new(&folder_path);
+    let entries = version_entries(folder)?;
+    if entries.first().map(|(latest, _)| *latest) == Some(version) {
+        return Err("不能删除最新版本".to_string());
+    }
+    let path = folder.join(version.to_string());
+    if !path.is_file() {
+        return Err("版本不存在".to_string());
+    }
+    fs::remove_file(path).map_err(|error| error.to_string())
+}
+
+fn is_date_folder(name: &str) -> bool {
+    let mut parts = name.split('-');
+    let date = parts.next().unwrap_or("");
+    if date.len() != 8 || !date.bytes().all(|byte| byte.is_ascii_digit()) {
+        return false;
+    }
+    let sequence = match parts.next() {
+        None => return true,
+        Some(sequence) => sequence,
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !sequence.is_empty() && sequence.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+#[derive(Serialize)]
+pub struct RecentMapInfo {
+    folder_path: String,
+    name: String,
+    latest_version: u32,
+    version_count: usize,
+    modified_ms: u64,
+}
+
+#[tauri::command]
+pub fn list_recent_maps(app: AppHandle, limit: usize) -> Result<Vec<RecentMapInfo>, String> {
+    let documents = app.path().document_dir().map_err(|error| error.to_string())?;
+    let root = documents.join("Drawnix");
+    let mut maps = Vec::new();
+    let read_dir = match fs::read_dir(&root) {
+        Ok(read_dir) => read_dir,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.to_string()),
+    };
+    for entry in read_dir {
+        let entry = entry.map_err(|error| error.to_string())?;
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !is_date_folder(&name) {
+            continue;
+        }
+        let entries = version_entries(&path)?;
+        let Some((latest_version, latest_path)) = entries.first() else {
+            continue;
+        };
+        let metadata = fs::metadata(latest_path).map_err(|error| error.to_string())?;
+        maps.push(RecentMapInfo {
+            folder_path: path.to_string_lossy().into_owned(),
+            name,
+            latest_version: *latest_version,
+            version_count: entries.len(),
+            modified_ms: modified_ms(&metadata),
+        });
+    }
+    maps.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
+    maps.truncate(limit);
+    Ok(maps)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_folder(name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!("drawnix-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn version_entries_only_include_files() {
+        let folder = test_folder("version-entries");
+        fs::write(folder.join("1"), "one").unwrap();
+        fs::write(folder.join("2"), "two").unwrap();
+        fs::write(folder.join("notes"), "ignore").unwrap();
+        fs::create_dir(folder.join("3")).unwrap();
+
+        let versions = version_entries(&folder).unwrap();
+        assert_eq!(
+            versions.iter().map(|(version, _)| *version).collect::<Vec<_>>(),
+            vec![2, 1]
+        );
+
+        fs::remove_dir_all(folder).unwrap();
+    }
+
+    #[test]
+    fn save_board_version_rejects_overwrite() {
+        let folder = test_folder("version-overwrite");
+        save_board_version(folder.to_string_lossy().into_owned(), 2, "first".to_string()).unwrap();
+
+        let error = save_board_version(folder.to_string_lossy().into_owned(), 2, "second".to_string())
+            .unwrap_err();
+        assert!(error.contains("不能覆盖"));
+        assert_eq!(
+            read_board_version(folder.join("2").to_string_lossy().into_owned()).unwrap(),
+            "first"
+        );
+
+        fs::remove_dir_all(folder).unwrap();
+    }
 }

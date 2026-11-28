@@ -18,8 +18,17 @@ export {
   createMindMap,
   saveBoardVersion,
   readBoardVersion,
+  listBoardVersions,
+  deleteBoardVersion,
+  listRecentMaps,
+  pickOpen,
   getRecentBoards,
   setRecentBoards,
   OPEN_RECENT_EVENT,
 } from './data/desktop';
-export type { DesktopFileHandle } from './data/desktop';
+export type {
+  DesktopFileHandle,
+  BoardVersionInfo,
+  RecentMapInfo,
+  DialogFilter,
+} from './data/desktop';

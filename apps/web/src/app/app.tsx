@@ -13,10 +13,17 @@ import {
   launchFilePath,
   createMindMap,
   saveBoardVersion,
+  readBoardVersion,
+  listBoardVersions,
+  deleteBoardVersion,
+  listRecentMaps,
+  pickOpen,
   getRecentBoards,
   setRecentBoards,
   OPEN_RECENT_EVENT,
   EVENT,
+  type BoardVersionInfo,
+  type RecentMapInfo,
 } from '@drawnix/drawnix';
 import { PlaitBoard, PlaitElement, PlaitTheme, Viewport } from '@plait/core';
 import type { BoardChangeData } from '@plait-board/react-board';
@@ -24,7 +31,8 @@ import { MindPointerType } from '@plait/mind';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import localforage from 'localforage';
-import { TabStrip, EmptyWorkspace, DiscardDialog, type TabView } from './tab-strip';
+import { TabStrip, DiscardDialog, type TabView } from './tab-strip';
+import { HistoryDrawer, ConfirmDialog, HomePanel, type VersionPreview } from './panels';
 import { uiCopy } from './i18n';
 
 type AppValue = {
@@ -52,9 +60,15 @@ type BoardTab = {
   dirty: boolean;
 };
 
+type VersionActionRequest = {
+  kind: 'restore' | 'delete';
+  tabId: string;
+  versionDir: string;
+  version: number;
+};
+
 const MAIN_BOARD_CONTENT_KEY = 'main_board_content';
 const MAIN_BOARD_TOOL_STATE_KEY = 'main_board_tool_state';
-const MAIN_BOARD_PREFERENCE_KEY = 'main_board_preference';
 const WORKSPACE_KEY = 'workspace_v2';
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -106,10 +120,23 @@ export function App() {
   const [loaded, setLoaded] = useState(false);
   const [closeRequest, setCloseRequest] = useState<string | null>(null);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyVersions, setHistoryVersions] = useState<BoardVersionInfo[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [previews, setPreviews] = useState<Record<number, VersionPreview>>({});
+  const [homeOpen, setHomeOpen] = useState(false);
+  const [recentMaps, setRecentMaps] = useState<RecentMapInfo[]>([]);
+  const [homeLoading, setHomeLoading] = useState(false);
+  const [versionRequest, setVersionRequest] = useState<VersionActionRequest | null>(null);
+  const [versionActionPending, setVersionActionPending] = useState(false);
 
   const tabsRef = useRef<BoardTab[]>([]);
   const activeRef = useRef<string | null>(null);
   const closeRequestRef = useRef<string | null>(null);
+  const versionRequestRef = useRef<VersionActionRequest | null>(null);
+  const versionActionPendingRef = useRef(false);
+  const historyRequestRef = useRef(0);
+  const openingMapsRef = useRef(new Set<string>());
   const preferenceRef = useRef(preference);
   const boardRefs = useRef(new Map<string, PlaitBoard>());
   const fileTimers = useRef(new Map<string, number>());
@@ -133,15 +160,17 @@ export function App() {
 
   const writeWorkspace = async () => {
     const payload = {
-      tabs: tabsRef.current.map(({ id, title, filePath, versionDir, nextVersion, value, toolState }) => ({
-        id,
-        title,
-        filePath,
-        versionDir,
-        nextVersion,
-        value: isDesktop && (filePath || versionDir) ? undefined : value,
-        toolState,
-      })),
+      tabs: tabsRef.current.map(
+        ({ id, title, filePath, versionDir, nextVersion, value, toolState }) => ({
+          id,
+          title,
+          filePath,
+          versionDir,
+          nextVersion,
+          value: isDesktop && (filePath || versionDir) ? undefined : value,
+          toolState,
+        })
+      ),
       activeId: activeRef.current,
       preference: preferenceRef.current,
       recentBoards: getRecentBoards(),
@@ -176,7 +205,9 @@ export function App() {
     if (queue) {
       await queue;
     }
-    commitTabs(tabsRef.current.map((item) => (item.id === tabId ? { ...item, dirty: false } : item)));
+    commitTabs(
+      tabsRef.current.map((item) => (item.id === tabId ? { ...item, dirty: false } : item))
+    );
   };
 
   const enqueueVersionSave = (tabId: string) => {
@@ -264,6 +295,7 @@ export function App() {
     commitTabs([...tabsRef.current, tab]);
     commitActive(tab.id);
     contentSignatures.current.set(tab.id, boardSignature(tab.value));
+    setHomeOpen(false);
     schedulePersist();
   };
 
@@ -279,6 +311,9 @@ export function App() {
     boardRefs.current.delete(id);
     if (activeRef.current === id) {
       commitActive(next[Math.min(position, next.length - 1)]?.id ?? null);
+    }
+    if (next.length === 0) {
+      setHomeOpen(false);
     }
     schedulePersist();
   };
@@ -339,6 +374,242 @@ export function App() {
     preferenceRef.current = next;
     setPreference(next);
     schedulePersist();
+  };
+
+  const activeTab = () => tabsRef.current.find((tab) => tab.id === activeRef.current);
+
+  const clearVersionRequest = () => {
+    versionRequestRef.current = null;
+    setVersionRequest(null);
+  };
+
+  const requestVersionAction = (kind: VersionActionRequest['kind'], version: number) => {
+    const tab = activeTab();
+    if (!tab?.versionDir) {
+      return;
+    }
+    const request: VersionActionRequest = {
+      kind,
+      tabId: tab.id,
+      versionDir: tab.versionDir,
+      version,
+    };
+    versionRequestRef.current = request;
+    setVersionRequest(request);
+  };
+
+  const refreshHistory = async () => {
+    const requestId = ++historyRequestRef.current;
+    const tab = activeTab();
+    setHistoryVersions([]);
+    setPreviews({});
+    if (!tab?.versionDir) {
+      setHistoryLoading(false);
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const versions = await listBoardVersions(tab.versionDir);
+      if (requestId !== historyRequestRef.current || activeRef.current !== tab.id) {
+        return;
+      }
+      setHistoryVersions(versions);
+    } catch (error) {
+      if (requestId === historyRequestRef.current) {
+        console.error(error);
+        setStorageError(String(error));
+      }
+    } finally {
+      if (requestId === historyRequestRef.current) {
+        setHistoryLoading(false);
+      }
+    }
+  };
+
+  const refreshHome = async () => {
+    if (!isDesktop) {
+      setRecentMaps([]);
+      return;
+    }
+    setHomeLoading(true);
+    try {
+      setRecentMaps(await listRecentMaps(12));
+    } catch (error) {
+      console.error(error);
+      setStorageError(String(error));
+    } finally {
+      setHomeLoading(false);
+    }
+  };
+
+  const previewVersion = async (version: number) => {
+    const tab = activeTab();
+    if (!tab?.versionDir) {
+      return;
+    }
+    const requestId = historyRequestRef.current;
+    try {
+      const value = parseBoard(await readBoardVersion(`${tab.versionDir}/${version}`));
+      if (!value || requestId !== historyRequestRef.current || activeRef.current !== tab.id) {
+        return;
+      }
+      const texts = value.children
+        .slice(0, 3)
+        .map((element) => {
+          const topic = (element as { data?: { topic?: { children?: { text?: string }[] } } }).data
+            ?.topic?.children;
+          return (topic ?? []).map((part) => part.text ?? '').join('');
+        })
+        .filter(Boolean);
+      setPreviews((current) => ({
+        ...current,
+        [version]: { nodes: value.children.length, texts },
+      }));
+    } catch (error) {
+      if (requestId === historyRequestRef.current) {
+        console.error(error);
+        setStorageError(String(error));
+      }
+    }
+  };
+
+  const restoreVersion = async (request: VersionActionRequest) => {
+    const { tabId, versionDir, version } = request;
+    try {
+      const raw = await readBoardVersion(`${versionDir}/${version}`);
+      const value = parseBoard(raw);
+      if (!value) {
+        return;
+      }
+      const previous = versionQueues.current.get(tabId) ?? Promise.resolve();
+      const task = previous
+        .catch(() => undefined)
+        .then(async () => {
+          const tab = tabsRef.current.find((item) => item.id === tabId);
+          if (!tab || tab.versionDir !== versionDir) {
+            return;
+          }
+          let nextVersion = tab.nextVersion;
+          if (tab.dirty) {
+            const board = boardRefs.current.get(tabId);
+            if (!board) {
+              throw new Error('画板尚未就绪');
+            }
+            nextVersion += 1;
+            await saveBoardVersion(versionDir, nextVersion, serializeAsJSON(board));
+            commitTabs(
+              tabsRef.current.map((item) =>
+                item.id === tabId ? { ...item, nextVersion, dirty: false } : item
+              )
+            );
+            schedulePersist();
+          }
+          nextVersion += 1;
+          await saveBoardVersion(versionDir, nextVersion, raw);
+          commitTabs(
+            tabsRef.current.map((item) =>
+              item.id === tabId ? { ...item, value, nextVersion, dirty: false } : item
+            )
+          );
+          contentSignatures.current.set(tabId, boardSignature(value));
+          clearVersionRequest();
+          setPreviews({});
+          schedulePersist();
+          await refreshHistory();
+        })
+        .catch((error) => {
+          console.error(error);
+          setStorageError(String(error));
+        });
+      versionQueues.current.set(tabId, task);
+      await task;
+    } catch (error) {
+      console.error(error);
+      setStorageError(String(error));
+    }
+  };
+
+  const deleteVersion = async (request: VersionActionRequest) => {
+    try {
+      await deleteBoardVersion(request.versionDir, request.version);
+      clearVersionRequest();
+      await refreshHistory();
+    } catch (error) {
+      console.error(error);
+      setStorageError(String(error));
+    }
+  };
+
+  const confirmVersionAction = () => {
+    const request = versionRequestRef.current;
+    if (!request || versionActionPendingRef.current) {
+      return;
+    }
+    versionActionPendingRef.current = true;
+    setVersionActionPending(true);
+    const task = request.kind === 'restore' ? restoreVersion(request) : deleteVersion(request);
+    void task.finally(() => {
+      versionActionPendingRef.current = false;
+      setVersionActionPending(false);
+    });
+  };
+
+  const openRecentMap = async (folderPath: string) => {
+    const existing = tabsRef.current.find((tab) => tab.versionDir === folderPath);
+    if (existing) {
+      activate(existing.id);
+      setHomeOpen(false);
+      return;
+    }
+    if (openingMapsRef.current.has(folderPath)) {
+      return;
+    }
+    openingMapsRef.current.add(folderPath);
+    const info = recentMaps.find((map) => map.folder_path === folderPath);
+    const latest = info?.latest_version ?? 1;
+    try {
+      const value = parseBoard(await readBoardVersion(`${folderPath}/${latest}`));
+      if (!value) {
+        return;
+      }
+      const opened = tabsRef.current.find((tab) => tab.versionDir === folderPath);
+      if (opened) {
+        activate(opened.id);
+        setHomeOpen(false);
+        return;
+      }
+      const tab: BoardTab = {
+        id: uid(),
+        title: info?.name ?? fileNameOf(folderPath),
+        filePath: null,
+        versionDir: folderPath,
+        nextVersion: latest,
+        value,
+        dirty: false,
+      };
+      commitTabs([...tabsRef.current, tab]);
+      commitActive(tab.id);
+      contentSignatures.current.set(tab.id, boardSignature(value));
+      setHomeOpen(false);
+      schedulePersist();
+    } catch (error) {
+      console.error(error);
+      setStorageError(String(error));
+    } finally {
+      openingMapsRef.current.delete(folderPath);
+    }
+  };
+
+  const openDrawnixFile = async () => {
+    try {
+      const paths = await pickOpen([{ name: 'Drawnix', extensions: ['drawnix'] }], false);
+      if (paths[0]) {
+        await openPath(paths[0]);
+      }
+      setHomeOpen(false);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   useEffect(() => {
@@ -452,7 +723,31 @@ export function App() {
   }, [tabs, activeId, loaded]);
 
   useEffect(() => {
+    if (!historyOpen) {
+      historyRequestRef.current += 1;
+      setHistoryVersions([]);
+      setPreviews({});
+      setHistoryLoading(false);
+      return;
+    }
+    void refreshHistory();
+  }, [activeId, historyOpen]);
+
+  useEffect(() => {
+    if (tabs.length === 0) {
+      void refreshHome();
+    }
+  }, [tabs.length]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (versionRequestRef.current) {
+        if (event.key === 'Escape' && !versionActionPendingRef.current) {
+          event.preventDefault();
+          clearVersionRequest();
+        }
+        return;
+      }
       const target = event.target as HTMLElement;
       if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
         return;
@@ -592,9 +887,23 @@ export function App() {
       <TabStrip
         tabs={views}
         language={preference.language}
+        historyEnabled={!!activeTab()?.versionDir}
+        homeActive={tabs.length === 0 || homeOpen}
         onActivate={activate}
         onClose={closeTab}
         onNew={newMindTab}
+        onHome={() => {
+          if (tabsRef.current.length === 0) {
+            return;
+          }
+          if (homeOpen) {
+            setHomeOpen(false);
+          } else {
+            setHomeOpen(true);
+            void refreshHome();
+          }
+        }}
+        onHistory={() => setHistoryOpen((open) => !open)}
       />
       <div className="workspace__panels">
         {storageError && (
@@ -669,7 +978,9 @@ export function App() {
               }}
               onToolStateChange={(toolState) => {
                 commitTabs(
-                  tabsRef.current.map((item) => (item.id === tab.id ? { ...item, toolState } : item))
+                  tabsRef.current.map((item) =>
+                    item.id === tab.id ? { ...item, toolState } : item
+                  )
                 );
                 schedulePersist();
               }}
@@ -700,8 +1011,73 @@ export function App() {
             ></Drawnix>
           </div>
         ))}
-        {tabs.length === 0 && <EmptyWorkspace language={preference.language} onNew={newMindTab} />}
+        {tabs.length === 0 && (
+          <HomePanel
+            language={preference.language}
+            maps={recentMaps}
+            loading={homeLoading}
+            openFileEnabled={isDesktop}
+            embedded
+            onNew={newMindTab}
+            onOpenFile={openDrawnixFile}
+            onOpenMap={openRecentMap}
+            onClose={() => setHomeOpen(false)}
+          />
+        )}
+        {homeOpen && tabs.length > 0 && (
+          <HomePanel
+            language={preference.language}
+            maps={recentMaps}
+            loading={homeLoading}
+            openFileEnabled={isDesktop}
+            embedded={false}
+            onNew={newMindTab}
+            onOpenFile={openDrawnixFile}
+            onOpenMap={openRecentMap}
+            onClose={() => setHomeOpen(false)}
+          />
+        )}
+        {historyOpen && (
+          <HistoryDrawer
+            language={preference.language}
+            versions={historyVersions}
+            loading={historyLoading}
+            previews={previews}
+            onClose={() => setHistoryOpen(false)}
+            onPreview={(version) => void previewVersion(version)}
+            onRestore={(version) => requestVersionAction('restore', version)}
+            onDelete={(version) => requestVersionAction('delete', version)}
+          />
+        )}
       </div>
+      {versionRequest && (
+        <ConfirmDialog
+          title={
+            versionRequest.kind === 'restore'
+              ? uiCopy(preference.language).restoreTitle(versionRequest.version)
+              : uiCopy(preference.language).deleteTitle(versionRequest.version)
+          }
+          body={
+            versionRequest.kind === 'restore'
+              ? uiCopy(preference.language).restoreBody
+              : uiCopy(preference.language).deleteBody
+          }
+          cancel={uiCopy(preference.language).cancel}
+          confirm={
+            versionRequest.kind === 'restore'
+              ? uiCopy(preference.language).restore
+              : uiCopy(preference.language).delete
+          }
+          danger={versionRequest.kind === 'delete'}
+          busy={versionActionPending}
+          onCancel={() => {
+            if (!versionActionPendingRef.current) {
+              clearVersionRequest();
+            }
+          }}
+          onConfirm={confirmVersionAction}
+        />
+      )}
       {closeRequest && (
         <DiscardDialog
           title={tabs.find((tab) => tab.id === closeRequest)?.title ?? ''}

@@ -13,9 +13,13 @@ export type TabView = {
 type TabStripProps = {
   tabs: TabView[];
   language: string;
+  historyEnabled: boolean;
+  homeActive: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onNew: () => void;
+  onHome: () => void;
+  onHistory: () => void;
 };
 
 const MindGlyph = () => (
@@ -51,7 +55,36 @@ const CloseGlyph = () => (
   </svg>
 );
 
-export const TabStrip = ({ tabs, language, onActivate, onClose, onNew }: TabStripProps) => {
+const HomeGlyph = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path
+      d="M2.5 7.5 8 2.5l5.5 5M4 6.5v7h8v-7"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const HistoryGlyph = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M8 5v3l2.2 1.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+export const TabStrip = ({
+  tabs,
+  language,
+  historyEnabled,
+  homeActive,
+  onActivate,
+  onClose,
+  onNew,
+  onHome,
+  onHistory,
+}: TabStripProps) => {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const t = uiCopy(language);
   const activeId = tabs.find((tab) => tab.active)?.id;
@@ -63,8 +96,16 @@ export const TabStrip = ({ tabs, language, onActivate, onClose, onNew }: TabStri
 
   return (
     <div className="tab-strip">
-      <div className="tab-strip__brand" aria-hidden="true">
-        <span className="tab-strip__brand-mark" />
+      <div className="tab-strip__brand">
+        <button
+          type="button"
+          className={`tab-strip__icon-button${homeActive ? ' tab-strip__icon-button--active' : ''}`}
+          onClick={onHome}
+          aria-label={t.home}
+          title={t.home}
+        >
+          <HomeGlyph />
+        </button>
       </div>
       <div className="tab-strip__tabs" ref={scrollerRef} role="tablist" aria-label={t.tabs}>
         {tabs.map((tab) => (
@@ -91,7 +132,9 @@ export const TabStrip = ({ tabs, language, onActivate, onClose, onNew }: TabStri
           >
             <span className="tab-strip__tab-icon">{tab.bound ? <FileGlyph /> : <MindGlyph />}</span>
             <span className="tab-strip__tab-title">{tab.title}</span>
-            {tab.dirty && <span className="tab-strip__dot" title={t.unsaved} aria-label={t.unsaved} />}
+            {tab.dirty && (
+              <span className="tab-strip__dot" title={t.unsaved} aria-label={t.unsaved} />
+            )}
             <button
               type="button"
               className="tab-strip__close"
@@ -106,6 +149,16 @@ export const TabStrip = ({ tabs, language, onActivate, onClose, onNew }: TabStri
           </div>
         ))}
       </div>
+      <button
+        type="button"
+        className="tab-strip__icon-button"
+        onClick={onHistory}
+        disabled={!historyEnabled}
+        aria-label={t.history}
+        title={t.history}
+      >
+        <HistoryGlyph />
+      </button>
       <button type="button" className="tab-strip__new" onClick={onNew}>
         <PlusGlyph />
         <span>{t.newTab}</span>
@@ -159,31 +212,6 @@ export const DiscardDialog = ({
           </button>
         </div>
       </div>
-    </div>
-  );
-};
-
-export const EmptyWorkspace = ({ language, onNew }: { language: string; onNew: () => void }) => {
-  const t = uiCopy(language);
-  return (
-    <div className="workspace__empty">
-      <div className="workspace__empty-mark">
-        <svg width="34" height="34" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <rect x="1.5" y="6" width="5" height="4" rx="1.2" fill="currentColor" />
-          <rect x="10" y="1.8" width="4.5" height="3.4" rx="1.1" fill="currentColor" opacity="0.75" />
-          <rect x="10" y="10.8" width="4.5" height="3.4" rx="1.1" fill="currentColor" opacity="0.75" />
-          <path d="M6.5 8h2.2m0 0V3.5h1.3m-1.3 4.5v4.5h1.3" stroke="currentColor" strokeWidth="1.1" />
-        </svg>
-      </div>
-      <h1 className="workspace__empty-title">{t.emptyTitle}</h1>
-      <p className="workspace__empty-sub">{t.emptySub}</p>
-      <button type="button" className="workspace__empty-action" onClick={onNew}>
-        <PlusGlyph />
-        {t.emptyAction}
-      </button>
-      <span className="workspace__empty-hint">
-        {t.emptyHint} <kbd>Ctrl</kbd> + <kbd>T</kbd>
-      </span>
     </div>
   );
 };
