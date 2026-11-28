@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toSvgData } from '@plait/core';
 import type { PlaitBoard } from '@plait/core';
-import { boardToImage } from './common';
+import { boardToImage, getImageExportRatio } from './common';
 
 vi.mock('@plait/core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@plait/core')>()),
@@ -11,6 +11,18 @@ vi.mock('@plait/core', async (importOriginal) => ({
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('getImageExportRatio', () => {
+  it('keeps 4x for small boards and caps large-board pixel budgets', () => {
+    expect(getImageExportRatio(200, 100, 4)).toBe(4);
+
+    const ratio = getImageExportRatio(1293, 13976, 4);
+    expect(ratio).toBeLessThan(4);
+    expect(1293 * ratio * 13976 * ratio).toBeLessThanOrEqual(32_000_000);
+    expect(1293 * ratio).toBeLessThanOrEqual(16_384);
+    expect(13976 * ratio).toBeLessThanOrEqual(16_384);
+  });
 });
 
 describe('boardToImage', () => {
@@ -37,7 +49,10 @@ describe('boardToImage', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
       context as unknown as CanvasRenderingContext2D
     );
-    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,AAA');
+    const pngBlob = new Blob(['png'], { type: 'image/png' });
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+      callback(pngBlob);
+    });
     vi.mocked(toSvgData).mockResolvedValue(
       `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100"><foreignObject x="10" y="20" width="180" height="40"><div xmlns="http://www.w3.org/1999/xhtml" class="slate-editable-container plait-text-container"><div data-slate-node="element"><span data-slate-node="text" style="font-size: 14px; font-family: Arial, sans-serif; line-height: 20px;">SVG 文字导出回归</span></div></div></foreignObject></svg>`
     );
@@ -45,7 +60,7 @@ describe('boardToImage', () => {
     const result = await boardToImage({} as PlaitBoard, { ratio: 2, fillStyle: '#ffffff' });
     const svgSource = decodeURIComponent(loadedSource.split(',')[1] ?? '');
 
-    expect(result).toBe('data:image/png;base64,AAA');
+    expect(result).toBe(pngBlob);
     expect(context.fillRect).toHaveBeenCalledWith(0, 0, 400, 200);
     expect(context.drawImage).toHaveBeenCalledOnce();
     expect(svgSource).toContain('<text');

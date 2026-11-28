@@ -1092,11 +1092,13 @@ export function App() {
                   (operation) =>
                     operation.type !== 'set_selection' && operation.type !== 'set_viewport'
                 );
-                const signature = boardSignature(next);
-                const contentChanged =
-                  shouldSnapshot && signature !== contentSignatures.current.get(tab.id);
-                if (contentChanged) {
-                  contentSignatures.current.set(tab.id, signature);
+                let contentChanged = false;
+                if (shouldSnapshot) {
+                  const signature = boardSignature(next);
+                  contentChanged = signature !== contentSignatures.current.get(tab.id);
+                  if (contentChanged) {
+                    contentSignatures.current.set(tab.id, signature);
+                  }
                 }
                 commitTabs(
                   tabsRef.current.map((item) =>

@@ -52,6 +52,17 @@ const loadSvgImage = (source: string) =>
     image.src = source;
   });
 
+const MAX_IMAGE_PIXELS = 32_000_000;
+const MAX_IMAGE_SIDE = 16_384;
+
+export const getImageExportRatio = (width: number, height: number, requestedRatio: number) =>
+  Math.min(
+    requestedRatio,
+    Math.sqrt(MAX_IMAGE_PIXELS / (width * height)),
+    MAX_IMAGE_SIDE / width,
+    MAX_IMAGE_SIDE / height
+  );
+
 export const boardToImage = async (board: PlaitBoard, options: ToImageOptions = {}) => {
   const {
     fillStyle = 'transparent',
@@ -75,8 +86,9 @@ export const boardToImage = async (board: PlaitBoard, options: ToImageOptions = 
       return undefined;
     }
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(width * ratio));
-    canvas.height = Math.max(1, Math.round(height * ratio));
+    const exportRatio = getImageExportRatio(width, height, ratio);
+    canvas.width = Math.max(1, Math.min(MAX_IMAGE_SIDE, Math.round(width * exportRatio)));
+    canvas.height = Math.max(1, Math.min(MAX_IMAGE_SIDE, Math.round(height * exportRatio)));
     const context = canvas.getContext('2d');
     if (!context) {
       return undefined;
@@ -89,7 +101,9 @@ export const boardToImage = async (board: PlaitBoard, options: ToImageOptions = 
       `data:image/svg+xml;charset=utf-8,${encodeURIComponent(portableSvgData)}`
     );
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/png');
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/png');
+    });
   } catch (error) {
     console.error('Error converting SVG to image:', error);
     return undefined;

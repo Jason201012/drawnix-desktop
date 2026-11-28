@@ -1,5 +1,5 @@
 import { getSelectedElements, PlaitBoard, toSvgData } from '@plait/core';
-import { base64ToBlob, boardToImage, download } from './common';
+import { boardToImage, download } from './common';
 import { fileOpen } from '../data/filesystem';
 import { IMAGE_MIME_TYPES } from '../constants';
 import { insertImage } from '../data/image';
@@ -99,11 +99,10 @@ const getImageBlob = async (
   elements?: ExportElements
 ) => {
   const backgroundColor = getBackgroundColor(board) || 'white';
-  const imageDataUrl = await boardToImage(board, {
+  return boardToImage(board, {
     elements,
     fillStyle: isTransparent ? 'transparent' : backgroundColor,
   });
-  return imageDataUrl ? base64ToBlob(imageDataUrl) : null;
 };
 
 export const saveAsSvg = (board: PlaitBoard) => {
