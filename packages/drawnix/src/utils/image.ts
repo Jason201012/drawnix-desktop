@@ -4,6 +4,7 @@ import { fileOpen } from '../data/filesystem';
 import { IMAGE_MIME_TYPES } from '../constants';
 import { insertImage } from '../data/image';
 import { getBackgroundColor } from './color';
+import { toPortableSvg } from './svg-text';
 import { TRANSPARENT } from '../constants/color';
 import type { DrawnixBoard } from '../hooks/use-drawnix';
 import { i18nInsidePlaitHook, type Translations } from '../i18n';
@@ -88,7 +89,8 @@ const getSvgBlob = async (board: PlaitBoard, isTransparent: boolean, elements?: 
     inlineStyleClassNames: '.plait-text-container',
     styleNames: ['position'],
   });
-  return new Blob([svgData], { type: CLIPBOARD_MIME_TYPES.svg });
+  const portableSvgData = toPortableSvg(svgData);
+  return new Blob([portableSvgData], { type: CLIPBOARD_MIME_TYPES.svg });
 };
 
 const getImageBlob = async (
